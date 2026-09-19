@@ -33,7 +33,12 @@ const UPSTREAM_TIMEOUT_MS = 8000;
 // by concurrency: twelve queries sent back to back cost six 429s regardless of
 // whether they go out in parallel or in a tight loop. So the circles are split
 // across both providers and spaced out within each sweep.
-const SPACING_MS = 400;
+const SPACING_MS = 550;
+// Retries go out after the sweeps, when the rate window is at its tightest.
+// Pausing first is what turns a retry into a second chance rather than a
+// third 429.
+const RETRY_PAUSE_MS = 1500;
+const RETRY_SPACING_MS = 900;
 const USER_AGENT = 'pgsradar (+https://pgsradar.vercel.app)';
 
 const FT_TO_M = 0.3048;
@@ -99,7 +104,7 @@ async function sweep(source, circles, prefix, byHex) {
         byHex.set(flight.icao24, flight);
       }
     } catch (err) {
-      missed.push({ circle: circles[i], reason: `${source.name}: ${err.message}` });
+      missed.push({ circle: circles[i], triedSource: source.name, reason: err.message });
     }
   }
 
@@ -124,10 +129,13 @@ export default async function handler(req, res) {
   // Anything one provider refused, give the other a chance at.
   const stillMissing = [];
   const retries = [...missedA, ...missedB];
+
+  if (retries.length) await sleep(RETRY_PAUSE_MS);
+
   for (let i = 0; i < retries.length; i++) {
-    const { circle, reason } = retries[i];
-    const other = missedA.includes(retries[i]) ? secondary : primary;
-    if (i > 0) await sleep(SPACING_MS);
+    const { circle, triedSource, reason } = retries[i];
+    const other = SOURCES.find((s) => s.name !== triedSource);
+    if (i > 0) await sleep(RETRY_SPACING_MS);
     try {
       for (const ac of await queryCircle(other.base, circle[0], circle[1])) {
         const flight = normalise(ac);
@@ -136,7 +144,9 @@ export default async function handler(req, res) {
         byHex.set(flight.icao24, flight);
       }
     } catch (err) {
-      stillMissing.push(`${circle}: ${reason} / ${other.name}: ${err.message}`);
+      stillMissing.push(
+        `${circle}: ${triedSource}: ${reason} / ${other.name}: ${err.message}`
+      );
     }
   }
 
