@@ -11,7 +11,7 @@
 // adsb.lol and adsb.fi are community ADS-B aggregators, need no key, and
 // answer from fra1 in 50-80ms. Their API caps a query at 250 nautical miles
 // around a point, so the fleet's range is covered by a set of overlapping
-// circles that are queried in parallel and merged.
+// circles that are swept one after another and merged.
 
 const SOURCES = [
   { name: 'adsb.lol', base: 'https://api.adsb.lol/v2' },
