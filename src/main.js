@@ -190,7 +190,7 @@ function renderList() {
       cs.textContent = f.callsign;
       const origin = document.createElement('div');
       origin.className = 'origin';
-      origin.textContent = f.originCountry || '';
+      origin.textContent = f.registration || '';
       info.append(cs, origin);
 
       const metrics = document.createElement('div');
@@ -214,7 +214,7 @@ function selectFlight(icao24, flyTo) {
   renderList();
 
   els.dCallsign.textContent = f.callsign;
-  els.dOrigin.textContent = f.originCountry || '—';
+  els.dOrigin.textContent = f.registration || '—';
   els.dAlt.textContent = Math.round(f.altitudeM * 3.281).toLocaleString('tr-TR') + ' ft';
   els.dSpeed.textContent = Math.round(f.speedMs * 1.944) + ' kt';
   els.dHeading.textContent = Math.round(f.heading) + '°';

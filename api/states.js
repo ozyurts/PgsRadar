@@ -65,7 +65,7 @@ function normalise(ac) {
   return {
     icao24: ac.hex,
     callsign,
-    originCountry: ac.r || '',
+    registration: ac.r || '',
     lat: ac.lat,
     lon: ac.lon,
     altitudeM: altFt * FT_TO_M,
