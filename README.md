@@ -178,5 +178,17 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
   içindeki `CIRCLES` listesine merkez ekleyin.
 - **Yer kapsaması**: ADS-B kapsaması topluluk alıcılarına dayanır; alıcı
   yoğunluğunun düşük olduğu bölgelerde uçuşlar eksik görünebilir.
+- **Sefer numarası**: Uçuşlar ICAO çağrı işaretiyle gösterilir (`PGT612`),
+  yolcunun bildiği IATA sefer koduyla (`PC612`) değil. Bu bilinçli bir
+  tercih, eksiklik değil:
+  - adsbdb'nin `callsign_iata` alanı havayolu kodunu **H9** veriyor; bu
+    Pegasus'un yıllar önce bıraktığı eski IATA kodu, güncel kod PC.
+  - Aynı alan harfli çağrı işaretlerinde düz karakter değiştirme yapıyor
+    (`PGT6AK` → `H96AK`). Ortada öyle bir sefer yok.
+  - Pegasus uçuşlarının kabaca yarısı harfli çağrı işareti kullanıyor
+    (`PGT480Q`, `PGT34VX`); bunların IATA karşılığı **yoktur**.
+  Saf sayısal olanlarda `PGT612 → PC612` dönüşümü kendimiz yapılabilir ama
+  bu bir çıkarımdır, doğrulanmış veri değil — sayının sefer numarasıyla
+  eşleşmesi yaygın bir pratiktir, kural değil.
 - **Mobil**: 680px altında uçuş listesi paneli gizlenir; küre üzerinden
   uçağa dokunarak detay kartına ulaşılır.
