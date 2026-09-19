@@ -255,7 +255,10 @@ async function poll() {
     els.updated.textContent = 'Son güncelleme: ' + fmtTime();
   } catch (err) {
     console.error('OpenSky fetch failed:', err);
-    setStatus('error', 'Veri alınamadı, yeniden denenecek');
+    setStatus('error', 'Veri alınamadı');
+    // Surfaced on screen because the status pill alone says nothing useful,
+    // and on phones there are no devtools to read the console with.
+    els.updated.textContent = 'Hata: ' + (err?.message || String(err));
   }
 }
 
