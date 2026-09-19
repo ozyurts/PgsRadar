@@ -56,12 +56,19 @@ viewer.scene.skyBox.show = false;
 viewer.scene.sun.show = false;
 viewer.scene.moon.show = false;
 viewer.scene.fog.enabled = false;
+// Without this the globe never hides anything, so aircraft on the far side of
+// the planet draw straight through it and the scene reads as a flat sticker
+// sheet rather than a sphere with things flying above it.
+viewer.scene.globe.depthTestAgainstTerrain = true;
 viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#dfe3e8');
-viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200000;
+// 200km was the old floor, which put the camera so far out that 11km of
+// altitude was ~4% of the frame — height could never read. Letting the camera
+// in to 20km is what makes the altitude legs legible.
+viewer.scene.screenSpaceCameraController.minimumZoomDistance = 20000;
 viewer.scene.screenSpaceCameraController.maximumZoomDistance = 25000000;
 
 viewer.camera.setView({
-  destination: Cesium.Cartesian3.fromDegrees(32, 38, 9000000),
+  destination: Cesium.Cartesian3.fromDegrees(28, 36, 5000000),
 });
 
 // ---------- Aircraft icon ----------
@@ -97,9 +104,59 @@ function buildPlaneIcon() {
 const PLANE_ICON = buildPlaneIcon();
 
 // ---------- State ----------
-const entities = new Map(); // icao24 -> Cesium.Entity
+const entities = new Map(); // icao24 -> { plane, leg, shadow }
+const fleet = new Map();    // icao24 -> { flight, receivedAt }
 let flights = [];
 let activeIcao = null;
+
+// ---------- Dead reckoning ----------
+// The feed refreshes every POLL_INTERVAL_MS. Snapping icons to each new fix
+// makes aircraft teleport; between fixes we advance them along their own
+// track and vertical rate instead, so they actually fly.
+const EARTH_RADIUS_M = 6371000;
+// If a fix stops being refreshed, stop extrapolating rather than let the
+// aircraft sail off on a heading it may have long since left.
+const MAX_COAST_S = 120;
+
+function project(icao24) {
+  const rec = fleet.get(icao24);
+  if (!rec) return undefined;
+
+  const f = rec.flight;
+  const dt = Math.min((Date.now() - rec.receivedAt) / 1000, MAX_COAST_S);
+
+  // Great-circle step of `speed * dt` along the current track.
+  const angular = (f.speedMs * dt) / EARTH_RADIUS_M;
+  const bearing = Cesium.Math.toRadians(f.heading);
+  const lat1 = Cesium.Math.toRadians(f.lat);
+  const lon1 = Cesium.Math.toRadians(f.lon);
+  const sinLat1 = Math.sin(lat1);
+  const cosLat1 = Math.cos(lat1);
+  const sinAng = Math.sin(angular);
+  const cosAng = Math.cos(angular);
+
+  const lat2 = Math.asin(sinLat1 * cosAng + cosLat1 * sinAng * Math.cos(bearing));
+  const lon2 = lon1 + Math.atan2(
+    Math.sin(bearing) * sinAng * cosLat1,
+    cosAng - sinLat1 * Math.sin(lat2)
+  );
+
+  return {
+    lon: Cesium.Math.toDegrees(lon2),
+    lat: Cesium.Math.toDegrees(lat2),
+    alt: Math.max(0, f.altitudeM + f.verticalRateMs * dt),
+  };
+}
+
+function airPosition(icao24) {
+  const p = project(icao24);
+  return p && Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.alt);
+}
+
+function groundPosition(icao24) {
+  const p = project(icao24);
+  return p && Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0);
+}
 
 const els = {
   list: document.getElementById('flightList'),
@@ -132,39 +189,80 @@ function fmtTime(d = new Date()) {
   return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+const ACCENT = Cesium.Color.fromCssColorString('#ff6a13');
+
+function createEntities(icao24) {
+  // Positions are callbacks rather than fixed values so every frame re-reads
+  // the dead-reckoned estimate and the aircraft glides instead of stepping.
+  const plane = viewer.entities.add({
+    id: icao24,
+    position: new Cesium.CallbackProperty(() => airPosition(icao24), false),
+    billboard: {
+      image: PLANE_ICON,
+      width: 26,
+      height: 26,
+      rotation: 0,
+      alignedAxis: Cesium.Cartesian3.UNIT_Z,
+      // Nearer aircraft sit larger in frame, which is most of what sells
+      // depth once the camera is tilted.
+      scaleByDistance: new Cesium.NearFarScalar(3.0e5, 1.3, 1.2e7, 0.6),
+    },
+  });
+
+  // The altitude leg: a dashed line straight down to the surface. This is the
+  // cue that actually says "this thing is up in the air" — the aircraft's own
+  // position cannot convey height on its own.
+  const leg = viewer.entities.add({
+    polyline: {
+      positions: new Cesium.CallbackProperty(() => {
+        const air = airPosition(icao24);
+        const ground = groundPosition(icao24);
+        return air && ground ? [air, ground] : undefined;
+      }, false),
+      width: 1,
+      material: new Cesium.PolylineDashMaterialProperty({
+        color: ACCENT.withAlpha(0.45),
+        dashLength: 8,
+      }),
+    },
+  });
+
+  // Where the aircraft sits over the map, so the leg has a visible foot.
+  const shadow = viewer.entities.add({
+    position: new Cesium.CallbackProperty(() => groundPosition(icao24), false),
+    point: {
+      pixelSize: 4,
+      color: Cesium.Color.fromCssColorString('#8a8f98').withAlpha(0.55),
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+    },
+  });
+
+  return { plane, leg, shadow };
+}
+
 function updateEntities() {
   const seen = new Set();
 
   flights.forEach((f) => {
     seen.add(f.icao24);
-    const position = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, f.altitudeM);
+    fleet.set(f.icao24, { flight: f, receivedAt: Date.now() });
 
-    let entity = entities.get(f.icao24);
-    if (!entity) {
-      entity = viewer.entities.add({
-        id: f.icao24,
-        position,
-        billboard: {
-          image: PLANE_ICON,
-          width: 26,
-          height: 26,
-          rotation: 0,
-          alignedAxis: Cesium.Cartesian3.UNIT_Z,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        },
-      });
-      entities.set(f.icao24, entity);
-    } else {
-      entity.position = position;
+    let group = entities.get(f.icao24);
+    if (!group) {
+      group = createEntities(f.icao24);
+      entities.set(f.icao24, group);
     }
-    entity.billboard.rotation = Cesium.Math.toRadians(-f.heading);
+    group.plane.billboard.rotation = Cesium.Math.toRadians(-f.heading);
   });
 
   // Remove aircraft that dropped out of the feed.
-  for (const [icao, entity] of entities) {
+  for (const [icao, group] of entities) {
     if (!seen.has(icao)) {
-      viewer.entities.remove(entity);
+      viewer.entities.remove(group.plane);
+      viewer.entities.remove(group.leg);
+      viewer.entities.remove(group.shadow);
       entities.delete(icao);
+      fleet.delete(icao);
     }
   }
 }
@@ -232,13 +330,20 @@ function selectFlight(icao24, flyTo) {
   els.detail.classList.add('visible');
 
   if (flyTo) {
-    const entity = entities.get(icao24);
-    if (entity) {
-      viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(f.lon, f.lat, f.altitudeM + 800000),
-        duration: 1.1,
-      });
-    }
+    // Approach from the side rather than straight down: a top-down camera
+    // projects the altitude leg to a single point, so height reads as zero.
+    // flyToBoundingSphere frames the aircraft itself, so the range below is
+    // the actual distance to it rather than a height above the ground.
+    const p = project(icao24) || { lon: f.lon, lat: f.lat, alt: f.altitudeM };
+    const target = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.alt);
+    viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), {
+      offset: new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(f.heading - 150),
+        Cesium.Math.toRadians(-22),
+        70000
+      ),
+      duration: 1.4,
+    });
   }
 }
 
