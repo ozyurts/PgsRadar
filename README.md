@@ -45,6 +45,27 @@ Proje OpenSky ile başlamıştı; iki bağımsız engel yüzünden bırakıldı:
    5 denemenin 5'i de 10 saniyede connect timeout verdi. Kimlik bilgisi eklemek
    bunu çözmez: yetkilenmek için önce bağlanabilmek gerekir.
 
+### İz ve rota
+
+Her uçağın arkasında, beslemenin **gerçekten bildirdiği sabitlerden** kurulan
+soluk bir iz çizilir; yalnızca izin başı (son sabitle ekrandaki anlık konumu
+birleştiren parça) ölü hesapla tahmin edilir. Böylece iz, uçağın nerede
+olduğunun dürüst bir kaydı olarak kalır.
+
+Bir uçuş seçilince üç şey devreye girer: izi koyulaşır, etrafında bir halka
+belirir ve mevcut rotası boyunca ileriye kesikli bir projeksiyon çizilir.
+İzler diğer uçaklarda bilinçli olarak soluktur — otuz uçak havadayken hepsi
+parlak olsa harita spagettiye döner.
+
+> **Not:** İleri projeksiyon bir **uçuş planı değildir**. ADS-B yayını
+> kalkış/varış bilgisi taşımaz, dolayısıyla bu çizgi "uçak nereye gidecek"
+> değil, "mevcut rotası sürerse nereye varır" demektir. Süresi
+> `src/main.js` içindeki `COURSE_SECONDS` ile ayarlanır.
+
+Seçim vurgusu uçak başına değil, seçili olanı takip eden tek bir katman
+olarak kuruludur; aksi halde her uçakta biri hariç hep boşta duran bir
+vurgu çifti taşınırdı.
+
 ### Harita zemini
 
 Zemin Esri'nin **Light Gray Canvas** servisinden gelir; anahtar gerektirmez.

@@ -118,18 +118,12 @@ const EARTH_RADIUS_M = 6371000;
 // aircraft sail off on a heading it may have long since left.
 const MAX_COAST_S = 120;
 
-function project(icao24) {
-  const rec = fleet.get(icao24);
-  if (!rec) return undefined;
-
-  const f = rec.flight;
-  const dt = Math.min((Date.now() - rec.receivedAt) / 1000, MAX_COAST_S);
-
-  // Great-circle step of `speed * dt` along the current track.
-  const angular = (f.speedMs * dt) / EARTH_RADIUS_M;
-  const bearing = Cesium.Math.toRadians(f.heading);
-  const lat1 = Cesium.Math.toRadians(f.lat);
-  const lon1 = Cesium.Math.toRadians(f.lon);
+/** Move a point `distanceM` along a great circle leaving on `headingDeg`. */
+function advance(latDeg, lonDeg, headingDeg, distanceM) {
+  const angular = distanceM / EARTH_RADIUS_M;
+  const bearing = Cesium.Math.toRadians(headingDeg);
+  const lat1 = Cesium.Math.toRadians(latDeg);
+  const lon1 = Cesium.Math.toRadians(lonDeg);
   const sinLat1 = Math.sin(lat1);
   const cosLat1 = Math.cos(lat1);
   const sinAng = Math.sin(angular);
@@ -141,11 +135,68 @@ function project(icao24) {
     cosAng - sinLat1 * Math.sin(lat2)
   );
 
+  return { lat: Cesium.Math.toDegrees(lat2), lon: Cesium.Math.toDegrees(lon2) };
+}
+
+function project(icao24) {
+  const rec = fleet.get(icao24);
+  if (!rec) return undefined;
+
+  const f = rec.flight;
+  const dt = Math.min((Date.now() - rec.receivedAt) / 1000, MAX_COAST_S);
+  const { lat, lon } = advance(f.lat, f.lon, f.heading, f.speedMs * dt);
+
   return {
-    lon: Cesium.Math.toDegrees(lon2),
-    lat: Cesium.Math.toDegrees(lat2),
+    lon,
+    lat,
     alt: Math.max(0, f.altitudeM + f.verticalRateMs * dt),
   };
+}
+
+// ---------- Track ----------
+// The trail is built from the fixes the feed actually reported, not from the
+// dead-reckoned estimate, so it stays an honest record of where the aircraft
+// has been. Only its head — the segment joining the last fix to the position
+// on screen right now — is extrapolated.
+const TRAIL_MAX_POINTS = 40;
+const TRAIL_MAX_AGE_MS = 25 * 60 * 1000;
+
+// How far ahead the selected aircraft's course is projected. ADS-B carries no
+// flight plan, so this is what its present track leads to, not a filed route.
+const COURSE_SECONDS = 900;
+const COURSE_STEPS = 24;
+const COURSE_MIN_SPEED_MS = 25;
+
+function trailPositions(icao24) {
+  const rec = icao24 && fleet.get(icao24);
+  if (!rec) return undefined;
+
+  const points = rec.history.map((h) =>
+    Cesium.Cartesian3.fromDegrees(h.lon, h.lat, h.alt)
+  );
+  const head = airPosition(icao24);
+  if (head) points.push(head);
+
+  return points.length >= 2 ? points : undefined;
+}
+
+function coursePositions(icao24) {
+  const rec = icao24 && fleet.get(icao24);
+  if (!rec) return undefined;
+
+  const f = rec.flight;
+  if (f.speedMs < COURSE_MIN_SPEED_MS) return undefined;
+
+  const from = project(icao24);
+  if (!from) return undefined;
+
+  const points = [];
+  for (let i = 0; i <= COURSE_STEPS; i++) {
+    const distance = f.speedMs * COURSE_SECONDS * (i / COURSE_STEPS);
+    const { lat, lon } = advance(from.lat, from.lon, f.heading, distance);
+    points.push(Cesium.Cartesian3.fromDegrees(lon, lat, from.alt));
+  }
+  return points;
 }
 
 function airPosition(icao24) {
@@ -227,6 +278,16 @@ function createEntities(icao24) {
     },
   });
 
+  // Where it has been. Kept faint: with thirty aircraft up, bright trails
+  // turn the map into spaghetti — the selected one gets highlighted instead.
+  const trail = viewer.entities.add({
+    polyline: {
+      positions: new Cesium.CallbackProperty(() => trailPositions(icao24), false),
+      width: 1.5,
+      material: ACCENT.withAlpha(0.22),
+    },
+  });
+
   // Where the aircraft sits over the map, so the leg has a visible foot.
   const shadow = viewer.entities.add({
     position: new Cesium.CallbackProperty(() => groundPosition(icao24), false),
@@ -237,15 +298,67 @@ function createEntities(icao24) {
     },
   });
 
-  return { plane, leg, shadow };
+  return { plane, leg, shadow, trail };
 }
+
+// ---------- Selection layer ----------
+// One set of entities that follows whichever aircraft is selected, rather
+// than a highlight pair per aircraft that would sit unused on all but one.
+const selectedTrail = viewer.entities.add({
+  polyline: {
+    positions: new Cesium.CallbackProperty(() => trailPositions(activeIcao), false),
+    width: 2.5,
+    material: ACCENT.withAlpha(0.9),
+  },
+});
+
+const selectedCourse = viewer.entities.add({
+  polyline: {
+    positions: new Cesium.CallbackProperty(() => coursePositions(activeIcao), false),
+    width: 1.5,
+    material: new Cesium.PolylineDashMaterialProperty({
+      color: ACCENT.withAlpha(0.65),
+      dashLength: 12,
+    }),
+  },
+});
+
+// A ring around the selected aircraft: a transparent point with an outline.
+const selectedHalo = viewer.entities.add({
+  position: new Cesium.CallbackProperty(
+    () => (activeIcao ? airPosition(activeIcao) : undefined),
+    false
+  ),
+  point: {
+    pixelSize: 30,
+    color: Cesium.Color.TRANSPARENT,
+    outlineColor: ACCENT.withAlpha(0.8),
+    outlineWidth: 2,
+    show: new Cesium.CallbackProperty(
+      () => Boolean(activeIcao && fleet.has(activeIcao)),
+      false
+    ),
+  },
+});
 
 function updateEntities() {
   const seen = new Set();
 
+  const now = Date.now();
+
   flights.forEach((f) => {
     seen.add(f.icao24);
-    fleet.set(f.icao24, { flight: f, receivedAt: Date.now() });
+
+    const previous = fleet.get(f.icao24);
+    const history = previous ? previous.history : [];
+    history.push({ lon: f.lon, lat: f.lat, alt: f.altitudeM, t: now });
+    while (
+      history.length > TRAIL_MAX_POINTS ||
+      (history.length > 1 && now - history[0].t > TRAIL_MAX_AGE_MS)
+    ) {
+      history.shift();
+    }
+    fleet.set(f.icao24, { flight: f, receivedAt: now, history });
 
     let group = entities.get(f.icao24);
     if (!group) {
@@ -261,6 +374,7 @@ function updateEntities() {
       viewer.entities.remove(group.plane);
       viewer.entities.remove(group.leg);
       viewer.entities.remove(group.shadow);
+      viewer.entities.remove(group.trail);
       entities.delete(icao);
       fleet.delete(icao);
     }
