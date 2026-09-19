@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>PGS Radar — Pegasus Filo Takibi</title>
+  <meta name="description" content="Pegasus Havayolları filosunun OpenSky Network verisiyle canlı konum takibi." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>" />
+</head>
+<body>
+  <div id="app">
+    <div id="cesiumContainer"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <div class="brand-text">
+          <h1>PGS Radar</h1>
+          <p>Pegasus filosu · canlı konum</p>
+        </div>
+      </div>
+      <div class="status" id="statusPill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Bağlanıyor…</span>
+      </div>
+    </header>
+
+    <aside class="panel" id="panel">
+      <div class="panel-head">
+        <h2>Aktif uçuşlar</h2>
+        <span class="count" id="flightCount">0</span>
+      </div>
+      <div class="flight-list" id="flightList"></div>
+    </aside>
+
+    <div class="detail-card" id="detailCard">
+      <button class="close-btn" id="closeDetail" aria-label="Kapat">×</button>
+      <div class="callsign" id="dCallsign">—</div>
+      <div class="origin" id="dOrigin">—</div>
+      <div class="detail-grid">
+        <div><span>İrtifa</span><strong id="dAlt">—</strong></div>
+        <div><span>Hız</span><strong id="dSpeed">—</strong></div>
+        <div><span>Rota</span><strong id="dHeading">—</strong></div>
+        <div><span>Konum</span><strong id="dPos">—</strong></div>
+      </div>
+    </div>
+
+    <footer class="foot">
+      <span id="updatedText">Son güncelleme: —</span>
+      <span class="dot-sep">·</span>
+      <a href="https://opensky-network.org" target="_blank" rel="noopener">OpenSky Network</a>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
