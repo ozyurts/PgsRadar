@@ -11,8 +11,8 @@ estetikten ilham alıyor.
   çağrı işareti `PGT` ile başlayan (Pegasus'un ICAO kodu) uçuşları süzer;
   `src/flights.js` bunu tüketen ince bir istemcidir. Anahtar gerekmez.
 - **Görselleştirme**: `src/main.js`, ion hesabı gerektirmeyen bir CesiumJS
-  `Viewer` kurar (`baseLayer: false` + düz ellipsoid terrain + CARTO Positron
-  açık tema harita karoları), ve her uçuş için heading'e göre döndürülen bir
+  `Viewer` kurar (`baseLayer: false` + düz ellipsoid terrain + Esri Light Gray
+  Canvas harita karoları), ve her uçuş için heading'e göre döndürülen bir
   uçak ikonu (billboard) yerleştirir.
 - **Arayüz**: `src/style.css`, cam-efektli (backdrop-blur) paneller, SF Pro
   yazı tipi yığını ve minimal turuncu (Pegasus) vurgu rengiyle Apple tarzı
@@ -44,6 +44,18 @@ Proje OpenSky ile başlamıştı; iki bağımsız engel yüzünden bırakıldı:
 2. **Erişim.** Vercel'den OpenSky'a TCP bağlantısı kurulamıyor. `fra1`'den yapılan
    5 denemenin 5'i de 10 saniyede connect timeout verdi. Kimlik bilgisi eklemek
    bunu çözmez: yetkilenmek için önce bağlanabilmek gerekir.
+
+### Harita zemini
+
+Zemin Esri'nin **Light Gray Canvas** servisinden gelir; anahtar gerektirmez.
+Esri bu stili ikiye ayırır: `World_Light_Gray_Base` yer adı içermez,
+`World_Light_Gray_Reference` yalnızca etiketleri taşır — ikisi de bağlanır.
+Karo adresleme sırası `{z}/{y}/{x}`'tir (önce satır, sonra sütun), alışıldık
+`x/y` değil.
+
+Proje CARTO Positron ile başlamıştı; CARTO anahtarsız karolara "API KEY
+REQUIRED" filigranı basmaya başlayınca bırakıldı. Bir gün Esri de aynısını
+yaparsa `src/main.js` içindeki `ESRI_CANVAS` sabitini değiştirmek yeterli.
 
 ### Bölge kilidi
 
