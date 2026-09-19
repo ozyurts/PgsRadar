@@ -58,13 +58,17 @@ export default async function handler(req, res) {
   // Only forward the bounding-box params, and only as numbers, so this
   // cannot be used to proxy arbitrary queries.
   const params = new URLSearchParams();
+  let bounded = false;
   for (const key of BBOX_KEYS) {
     const raw = req.query?.[key];
     const value = Number(Array.isArray(raw) ? raw[0] : raw);
-    if (Number.isFinite(value)) params.set(key, String(value));
+    if (Number.isFinite(value)) {
+      params.set(key, String(value));
+      bounded = true;
+    }
   }
 
-  const url = params.size ? `${STATES_URL}?${params}` : STATES_URL;
+  const url = bounded ? `${STATES_URL}?${params}` : STATES_URL;
 
   try {
     const token = await getAccessToken();
