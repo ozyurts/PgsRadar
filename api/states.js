@@ -47,21 +47,45 @@ const FTMIN_TO_MS = 0.00508;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Descriptions come through shouting ("BOEING 737-800"). Title-case only when
-// there is no lower case to preserve, so mixed-case names like "A321neo"
-// survive untouched.
+// Only adsb.lol sends a description; adsb.fi sends the ICAO type code alone.
+// Naming from the code first keeps one aircraft type reading the same however
+// it was fetched — otherwise the same A321neo would appear as "AIRBUS A-321neo"
+// or as nothing at all depending on which provider answered that circle.
+const TYPE_NAMES = {
+  A19N: 'Airbus A319neo',
+  A20N: 'Airbus A320neo',
+  A21N: 'Airbus A321neo',
+  A319: 'Airbus A319',
+  A320: 'Airbus A320',
+  A321: 'Airbus A321',
+  B737: 'Boeing 737-700',
+  B738: 'Boeing 737-800',
+  B739: 'Boeing 737-900',
+  B38M: 'Boeing 737 MAX 8',
+  B39M: 'Boeing 737 MAX 9',
+};
+
+// Descriptions come through shouting ("AIRBUS A-321neo"). Title-case word by
+// word rather than testing the whole string: one lower-case tail ("neo") must
+// not excuse the rest from being fixed.
 function tidyModel(value) {
   const text = String(value ?? '').trim();
   if (!text) return null;
-  if (/[a-z]/.test(text)) return text;
 
   return text
     .split(' ')
-    // Leave anything with a digit alone: "737-800" must not become "737-800".
     .map((word) =>
-      /\d/.test(word) ? word : word.charAt(0) + word.slice(1).toLowerCase()
+      // Leave anything with a digit or any lower case already in it alone.
+      /\d/.test(word) || /[a-z]/.test(word)
+        ? word
+        : word.charAt(0) + word.slice(1).toLowerCase()
     )
     .join(' ');
+}
+
+function modelOf(ac) {
+  const type = String(ac.t ?? '').trim().toUpperCase();
+  return TYPE_NAMES[type] || tidyModel(ac.desc) || null;
 }
 
 function normalise(ac) {
@@ -86,7 +110,7 @@ function normalise(ac) {
     // The aggregator already carries the airframe, so the type costs nothing
     // extra: no second lookup, no second source to disagree with.
     type: String(ac.t ?? '').trim() || null,
-    model: tidyModel(ac.desc),
+    model: modelOf(ac),
     lat: ac.lat,
     lon: ac.lon,
     altitudeM: altFt * FT_TO_M,

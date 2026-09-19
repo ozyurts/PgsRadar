@@ -62,6 +62,18 @@ parlak olsa harita spagettiye döner.
 > değil, "mevcut rotası sürerse nereye varır" demektir. Süresi
 > `src/main.js` içindeki `COURSE_SECONDS` ile ayarlanır.
 
+### Uçak tipi
+
+Tip, toplayıcı yanıtında zaten geliyor; ek bir sorgu yok. Ama iki sağlayıcı
+aynı şeyi göndermiyor: adsb.lol açıklama alanını (`desc`) da veriyor, adsb.fi
+yalnızca ICAO tip kodunu (`t`). Ölçümde 32 uçuşun 7'sinde açıklama boştu.
+
+Bu yüzden ad, önce `api/states.js` içindeki `TYPE_NAMES` tablosundan tip
+koduyla üretilir; tablo tanımıyorsa açıklamaya düşülür. Tersi yapılsaydı aynı
+A321neo, hangi dairenin hangi sağlayıcıdan yanıt aldığına göre bazen
+"AIRBUS A-321neo" bazen hiç görünmezdi. Yeni bir tip filoya girerse tabloya
+bir satır eklemek yeterli.
+
 ### Kalkış/varış (çapraz doğrulama)
 
 Gerçek kalkış–varış çifti `api/route.js` ile ayrıca çözülür: çağrı işareti

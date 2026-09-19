@@ -524,7 +524,9 @@ function selectFlight(icao24, flyTo) {
   if (changed) loadRoute(f.callsign);
 
   els.dCallsign.textContent = f.callsign;
-  els.dOrigin.textContent = f.registration || '—';
+  // Registration and type both describe the airframe, so they share a line.
+  els.dOrigin.textContent =
+    [f.registration, f.model || f.type].filter(Boolean).join(' · ') || '—';
   els.dAlt.textContent = Math.round(f.altitudeM * 3.281).toLocaleString('tr-TR') + ' ft';
   els.dSpeed.textContent = Math.round(f.speedMs * 1.944) + ' kt';
   els.dHeading.textContent = Math.round(f.heading) + '°';
