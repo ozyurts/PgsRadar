@@ -17,13 +17,22 @@
 const STATES_URL = 'https://opensky-network.org/api/states/all';
 const PROXY_URL = '/api/states';
 
+// An env var that exists but is blank (Vercel adds the keys from .env.example
+// this way on import) must fall back to the default, not to Number('') === 0 —
+// a zero-area box silently returns no flights at all.
+function envNumber(raw, fallback) {
+  if (raw == null || String(raw).trim() === '') return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 // Generous box around Pegasus' route network: Europe, North Africa, the
 // Middle East and Central Asia. Override via env if you retarget the app.
 const BBOX = {
-  lamin: Number(import.meta.env.VITE_BBOX_LAMIN ?? 15),
-  lomin: Number(import.meta.env.VITE_BBOX_LOMIN ?? -15),
-  lamax: Number(import.meta.env.VITE_BBOX_LAMAX ?? 65),
-  lomax: Number(import.meta.env.VITE_BBOX_LOMAX ?? 80),
+  lamin: envNumber(import.meta.env.VITE_BBOX_LAMIN, 15),
+  lomin: envNumber(import.meta.env.VITE_BBOX_LOMIN, -15),
+  lamax: envNumber(import.meta.env.VITE_BBOX_LAMAX, 65),
+  lomax: envNumber(import.meta.env.VITE_BBOX_LOMAX, 80),
 };
 
 // State vector field order, per OpenSky's documented schema.

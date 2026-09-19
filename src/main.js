@@ -7,7 +7,8 @@ import { fetchFleet } from './opensky.js';
 // and use a free, token-less basemap + a flat ellipsoid terrain model.
 Cesium.Ion.defaultAccessToken = undefined;
 
-const CALLSIGN_PREFIX = import.meta.env.VITE_CALLSIGN_PREFIX || 'PGT';
+// `||` here is deliberate: a blank env var falls back to the default.
+const CALLSIGN_PREFIX = import.meta.env.VITE_CALLSIGN_PREFIX?.trim() || 'PGT';
 const POLL_INTERVAL_MS = Number(import.meta.env.VITE_POLL_INTERVAL_MS) || 25000;
 
 // ---------- Viewer ----------
