@@ -75,27 +75,35 @@ async function queryCircle(base, lat, lon) {
 }
 
 async function collect(source, prefix) {
-  const settled = await Promise.allSettled(
-    CIRCLES.map(([lat, lon]) => queryCircle(source.base, lat, lon))
-  );
-
-  const ok = settled.filter((s) => s.status === 'fulfilled');
-  if (ok.length === 0) {
-    throw new Error('every circle failed');
-  }
-
-  // The circles overlap, so the same aircraft comes back more than once.
+  // Sequential, not Promise.all: firing all twelve at once made the upstream
+  // drop several of them, and a dropped circle is a hole in the map. At ~60ms
+  // each the whole sweep still costs well under a second, and the edge cache
+  // means we only pay it once per CACHE_SECONDS.
   const byHex = new Map();
-  for (const s of ok) {
-    for (const ac of s.value) {
-      const flight = normalise(ac);
-      if (!flight) continue;
-      if (!flight.callsign.toUpperCase().startsWith(prefix)) continue;
-      byHex.set(flight.icao24, flight);
+  const failures = [];
+
+  for (const [lat, lon] of CIRCLES) {
+    try {
+      // The circles overlap, so the same aircraft comes back more than once.
+      for (const ac of await queryCircle(source.base, lat, lon)) {
+        const flight = normalise(ac);
+        if (!flight) continue;
+        if (!flight.callsign.toUpperCase().startsWith(prefix)) continue;
+        byHex.set(flight.icao24, flight);
+      }
+    } catch (err) {
+      failures.push(`${lat},${lon}: ${err.message}`);
     }
   }
 
-  return { flights: [...byHex.values()], degraded: ok.length < CIRCLES.length };
+  if (failures.length === CIRCLES.length) {
+    throw new Error(`every circle failed (${failures[0]})`);
+  }
+  if (failures.length) {
+    console.warn(`${source.name} partial coverage:`, failures.join(' | '));
+  }
+
+  return { flights: [...byHex.values()], degraded: failures.length > 0 };
 }
 
 export default async function handler(req, res) {
