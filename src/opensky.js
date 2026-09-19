@@ -1,20 +1,15 @@
-// Thin client for the OpenSky Network REST API.
+// Client for our own /api/states endpoint, which reads OpenSky server-side.
 //
-// Anonymous access works with no credentials, on a limited daily credit
-// budget (roughly 400 credits/day at time of writing). Two things keep us
-// inside it:
+// The browser cannot call OpenSky directly: the API answers with
+// `access-control-allow-origin: https://opensky-network.org`, i.e. it allows
+// only OpenSky's own site, so a cross-origin read is always blocked. OpenSky
+// also refuses connections from some cloud regions — from Vercel's iad1 the
+// TCP handshake times out, while fra1 answers in ~75ms — so the serverless
+// function is pinned to fra1 in vercel.json.
 //
-//   * We poll conservatively (see VITE_POLL_INTERVAL_MS).
-//   * We ask for a bounding box rather than the whole planet. A global
-//     /states/all response is several megabytes and costs 4 credits; a
-//     bounded one costs 1 and is a fraction of the size.
-//
-// The browser calls OpenSky directly, so each visitor spends their own IP's
-// credit budget instead of a single shared one. If that call fails (CORS,
-// rate limit), we fall back to the bundled serverless proxy in /api/states.
-// See README.md.
+// Because every visitor now shares one egress IP, the response is cached at
+// the edge; see api/states.js for the credit-budget reasoning.
 
-const STATES_URL = 'https://opensky-network.org/api/states/all';
 const PROXY_URL = '/api/states';
 
 // An env var that exists but is blank (Vercel adds the keys from .env.example
@@ -55,46 +50,15 @@ function query() {
   ).toString();
 }
 
-async function getJson(url, signal) {
-  const res = await fetch(url, { signal });
+async function getStates(signal) {
+  const res = await fetch(`${PROXY_URL}?${query()}`, { signal });
   if (!res.ok) {
-    throw new Error(`OpenSky ${res.status}: ${res.statusText}`);
+    if (res.status === 429) {
+      throw new Error('OpenSky kredi limiti doldu, sonra tekrar denenecek');
+    }
+    throw new Error(`Veri kaynağı ${res.status} döndü`);
   }
   return res.json();
-}
-
-// OpenSky appears to drop connections from datacenter ranges, so the proxy
-// can sit there until its own 10s connect timeout. Cap the wait so a failing
-// fallback surfaces the error quickly instead of stalling the poll.
-const PROXY_TIMEOUT_MS = 6000;
-
-function withTimeout(signal, ms) {
-  if (typeof AbortSignal?.timeout !== 'function') return signal;
-  const timeout = AbortSignal.timeout(ms);
-  if (typeof AbortSignal.any !== 'function') return signal ?? timeout;
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
-
-// Once one of the two routes works, stick with it rather than re-testing
-// the direct call (and burning a credit on it) every poll.
-let preferProxy = false;
-
-async function getStates(signal) {
-  if (preferProxy) {
-    return getJson(`${PROXY_URL}?${query()}`, signal);
-  }
-  try {
-    return await getJson(`${STATES_URL}?${query()}`, signal);
-  } catch (err) {
-    if (signal?.aborted) throw err;
-    // Direct call blocked or throttled — try the server-side proxy once.
-    const data = await getJson(
-      `${PROXY_URL}?${query()}`,
-      withTimeout(signal, PROXY_TIMEOUT_MS)
-    );
-    preferProxy = true;
-    return data;
-  }
 }
 
 /**

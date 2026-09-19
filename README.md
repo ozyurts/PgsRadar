@@ -18,37 +18,41 @@ estetikten ilham alıyor.
   yazı tipi yığını ve minimal turuncu (Pegasus) vurgu rengiyle Apple tarzı
   bir görünüm hedefler. Açık/koyu tema sistem tercihine göre otomatik geçer.
 
-## Kredi bütçesi ve veri yolu
+## Veri yolu
 
-OpenSky'nin anonim erişimi günlük kredi bütçesiyle sınırlıdır (yazıldığı
-sırada ~400 kredi/gün, IP başına). Uygulama bunun içinde kalmak için iki şey
-yapar:
+Veri **sunucu tarafından** çekilir (`api/states.js`), tarayıcıdan değil. Bunun
+iki zorunlu sebebi var ve ikisi de ölçülerek bulundu:
 
-1. **Bounding box ile sorgu.** Tüm gezegeni isteyen bir `/states/all` yanıtı
-   birkaç megabayt ve 4 kredi; sınırlandırılmış olanı 1 kredi ve çok daha
-   küçük. Varsayılan kutu Avrupa, Kuzey Afrika, Orta Doğu ve Orta Asya'yı
-   kapsar (Pegasus'un uçtuğu alan).
-2. **Tarayıcıdan doğrudan çağrı.** İstek sunucudan değil ziyaretçinin
-   tarayıcısından gider; böylece her ziyaretçi kendi IP'sinin kredi
-   bütçesini harcar, tek bir ortak bütçe değil.
+1. **CORS.** OpenSky yanıtı `access-control-allow-origin: https://opensky-network.org`
+   başlığıyla dönüyor — yani başlık var ama yalnızca OpenSky'ın kendi sitesine
+   izin veriyor. Başka bir origin'deki tarayıcı yanıtı hiçbir zaman okuyamaz.
+2. **Bölge.** OpenSky Zürih'te barınıyor ve her bulut bölgesinden bağlantı
+   kabul etmiyor. Vercel'in `iad1` bölgesinden TCP handshake 10 saniyede
+   timeout oluyor; `fra1`'den aynı istek ~75 ms'de dönüyor. Bu yüzden
+   fonksiyon `vercel.json` içinde `fra1`'e sabitlendi. **Bu ayarı
+   değiştirmeyin**, yoksa veri akışı durur.
 
-Doğrudan çağrı başarısız olursa (CORS, rate limit) uygulama `/api/states`
-altındaki serverless yedeğe düşer. Bu yedek tek bir çıkış IP'si kullandığı
-için yanıtı edge'de 20 saniye cache'ler.
+Sorgu bir bounding box ile sınırlandırılır; yanıt megabaytlar yerine ~35 KB olur.
 
-> **Not:** Vercel'in `iad1` bölgesinden OpenSky'a yapılan bağlantılar şu an
-> zaman aşımına uğruyor (`UND_ERR_CONNECT_TIMEOUT`) — OpenSky datacenter
-> IP aralıklarını engelliyor gibi görünüyor. Yani yedek yol pratikte
-> çalışmıyor; asıl veri yolu tarayıcıdan yapılan doğrudan çağrıdır. Yedek,
-> bu durum değişirse veya OAuth2 kimlik bilgileri eklenirse devreye girmek
-> üzere yerinde bırakıldı.
+### Kredi bütçesi
+
+Tüm ziyaretçiler tek bir çıkış IP'sini paylaştığı için OpenSky kredi bütçesi de
+ortaktır. Bunu ayakta tutan şey edge cache'idir: OpenSky'a giden istek sayısı
+ziyaretçi sayısıyla değil, **izlenen farklı `CACHE_SECONDS` penceresi sayısıyla**
+orantılıdır. 60 saniyelik cache ile 10 kişi de 1 kişi de izlese dakikada tek bir
+üst-kaynak isteği olur.
+
+Anonim erişim günde birkaç yüz kredi verir ve bu boyutta bir kutu en ucuz
+kademe değildir; trafik artarsa ya `CACHE_SECONDS` değerini büyütün ya da
+aşağıdaki kimlik bilgilerini ekleyin.
 
 ### Daha yüksek kota (opsiyonel)
 
 Vercel projesine `OPENSKY_CLIENT_ID` ve `OPENSKY_CLIENT_SECRET` ortam
 değişkenlerini eklerseniz `/api/states` OpenSky'nin OAuth2 client-credentials
-akışını kullanır. Bu değerler sunucu tarafında kalır, tarayıcıya gönderilmez —
-client secret'ı asla doğrudan istemci koduna koymayın.
+akışını kullanır ve kota belirgin şekilde yükselir. Bu değerler sunucu
+tarafında kalır, tarayıcıya gönderilmez — client secret'ı asla doğrudan
+istemci koduna koymayın.
 
 ## Yerel geliştirme
 
@@ -59,8 +63,12 @@ npm run dev
 
 `http://localhost:5173` adresinde açılır.
 
-`npm run dev` ve `npm run preview` yalnızca statik siteyi sunar; `/api/states`
-yedeğini yerelde çalıştırmak isterseniz `vercel dev` kullanın.
+`npm run dev` ve `npm run preview` yalnızca statik siteyi sunar; veri için
+gereken `/api/states` fonksiyonunu da çalıştırmak üzere `vercel dev` kullanın —
+aksi halde yerelde uçuş görünmez.
+
+`/diag.html` adresinde, veri yolunu tarayıcıdan test edip sonucu ekrana yazan
+bir teşhis sayfası var.
 
 ## Ortam değişkenleri
 
@@ -70,7 +78,7 @@ Hepsi opsiyoneldir; hiçbiri ayarlanmadan uygulama çalışır. Örnekler için
 | Değişken | Varsayılan | Açıklama |
 | --- | --- | --- |
 | `VITE_CALLSIGN_PREFIX` | `PGT` | Takip edilecek çağrı işareti öneki |
-| `VITE_POLL_INTERVAL_MS` | `25000` | OpenSky yenileme aralığı (ms) |
+| `VITE_POLL_INTERVAL_MS` | `30000` | Arayüzün yenileme aralığı (ms) |
 | `VITE_BBOX_LAMIN` / `VITE_BBOX_LAMAX` | `15` / `65` | Sorgu kutusu enlem sınırları |
 | `VITE_BBOX_LOMIN` / `VITE_BBOX_LOMAX` | `-15` / `80` | Sorgu kutusu boylam sınırları |
 | `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` | — | Sunucu tarafı OAuth2 (yukarı bakın) |

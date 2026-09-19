@@ -9,7 +9,7 @@ Cesium.Ion.defaultAccessToken = undefined;
 
 // `||` here is deliberate: a blank env var falls back to the default.
 const CALLSIGN_PREFIX = import.meta.env.VITE_CALLSIGN_PREFIX?.trim() || 'PGT';
-const POLL_INTERVAL_MS = Number(import.meta.env.VITE_POLL_INTERVAL_MS) || 25000;
+const POLL_INTERVAL_MS = Number(import.meta.env.VITE_POLL_INTERVAL_MS) || 30000;
 
 // ---------- Viewer ----------
 const viewer = new Cesium.Viewer('cesiumContainer', {

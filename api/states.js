@@ -1,11 +1,17 @@
-// Server-side fallback for the OpenSky call.
+// Reads OpenSky server-side. This is the only data path: OpenSky answers with
+// `access-control-allow-origin: https://opensky-network.org`, so a browser on
+// any other origin can never read the response.
 //
-// The browser talks to OpenSky directly in the normal case, so each visitor
-// spends their own IP's anonymous credit budget. This endpoint only comes
-// into play when that direct call fails (CORS, throttling) — see
-// src/opensky.js. Because every visitor then shares this one egress IP, the
-// response is cached at the edge so the upstream call rate stays flat no
-// matter how many people are watching.
+// Runs in fra1 (pinned in vercel.json). OpenSky is hosted in Zurich and does
+// not accept connections from every cloud region — from iad1 the TCP
+// handshake times out after 10s, from fra1 it answers in ~75ms.
+//
+// Every visitor shares this one egress IP, so the anonymous credit budget is
+// shared too. The edge cache is what keeps that affordable: upstream calls
+// scale with how many distinct CACHE_SECONDS windows are viewed, not with how
+// many people are watching. Anonymous access is a few hundred credits/day and
+// a box this size is not the cheapest tier, so keep CACHE_SECONDS generous
+// unless you add credentials.
 //
 // Optional: set OPENSKY_CLIENT_ID / OPENSKY_CLIENT_SECRET in the Vercel
 // project to use OpenSky's OAuth2 client-credentials flow, which carries a
@@ -17,7 +23,7 @@ const TOKEN_URL =
   'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token';
 
 const BBOX_KEYS = ['lamin', 'lomin', 'lamax', 'lomax'];
-const CACHE_SECONDS = 20;
+const CACHE_SECONDS = 60;
 
 let cachedToken = null; // { value, expiresAt }
 
