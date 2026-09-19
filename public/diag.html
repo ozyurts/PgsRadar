@@ -48,7 +48,7 @@ const TESTS = [
       const t = await r.text();
       if (!r.ok) throw new Error(`HTTP ${r.status} · ${t.slice(0, 140)}`);
       const j = JSON.parse(t);
-      return `HTTP 200 · ${Date.now() - t0} ms · kaynak: ${j.source}`
+      return `HTTP 200 · ${Date.now() - t0} ms · kaynak: ${(j.sources || []).join(', ')}`
         + `\nBulunan uçuş: ${(j.flights || []).length}`
         + (j.degraded ? '\nUYARI: bazı bölge sorguları başarısız, kapsama eksik olabilir' : '')
         + ((j.flights || []).length ? '\nÖrnek: ' + j.flights.slice(0, 3).map(f => f.callsign).join(', ') : '');
