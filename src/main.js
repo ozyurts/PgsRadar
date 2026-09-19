@@ -437,9 +437,26 @@ function renderList() {
 // rather than written into the card of whatever is selected by then.
 let routeRequest = null;
 
-/** Prefer the airport's name, then its city, and fall back to the code. */
+/**
+ * Label an airport the way people actually refer to it. Some names already
+ * carry the city ("Istanbul Sabiha Gökçen"); others do not ("Manas"), and on
+ * its own that is unrecognisable — it is the airport in Bishkek.
+ */
 function portLabel(port) {
-  return port?.name || port?.city || port?.icao || '—';
+  const name = port?.name;
+  const city = port?.city;
+  if (!name) return city || port?.icao || '—';
+  if (!city) return name;
+
+  // "Pendik, Istanbul" — the trailing part is the city people would name.
+  const parts = city.split(',').map((p) => p.trim()).filter(Boolean);
+  const label = parts[parts.length - 1];
+  if (!label) return name;
+
+  const mentioned = parts.some((part) =>
+    name.toLocaleLowerCase('tr').includes(part.toLocaleLowerCase('tr'))
+  );
+  return mentioned ? name : `${label} ${name}`;
 }
 
 /** The long form, for a tooltip: everything the shortened label dropped. */

@@ -269,6 +269,7 @@ body {
   box-shadow: var(--shadow);
   padding: 18px 20px;
   min-width: 220px;
+  max-width: min(340px, calc(100vw - 40px));
   opacity: 0;
   transform: translateY(-8px);
   pointer-events: none;
@@ -295,15 +296,14 @@ body {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
-  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
 }
 .detail-card .route .ports {
   display: block;
-  font-family: inherit;
   font-size: 13.5px;
   font-weight: 600;
+  line-height: 1.35;
 }
 .detail-card .route .codes {
   display: block;
