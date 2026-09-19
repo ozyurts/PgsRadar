@@ -7,6 +7,7 @@ const CANDIDATES = [
   ['esri-light-gray', 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/6/24/37'],
   ['osm', 'https://tile.openstreetmap.org/6/37/24.png'],
   ['esri-topo', 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/6/24/37'],
+  ['esri-light-gray-reference', 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/6/24/37'],
 ];
 
 export default async function handler(req, res) {

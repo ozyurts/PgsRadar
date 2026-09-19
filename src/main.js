@@ -28,15 +28,25 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
   shouldAnimate: true,
 });
 
-// Light, clean CARTO "Positron" basemap — no API key needed.
-viewer.imageryLayers.addImageryProvider(
-  new Cesium.UrlTemplateImageryProvider({
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-    subdomains: ['a', 'b', 'c', 'd'],
-    credit: '© OpenStreetMap contributors © CARTO',
-    maximumLevel: 19,
-  })
-);
+// Esri's "Light Gray Canvas" — a clean, low-contrast basemap that needs no
+// API key. (CARTO's key-less tiles were used here first, but they now come
+// back stamped with an "API KEY REQUIRED" watermark.)
+//
+// Esri splits this style in two: the base has no place names, the reference
+// layer carries the labels. Note the {z}/{y}/{x} order — Esri addresses tiles
+// by row then column, not the usual x/y.
+const ESRI_CANVAS = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas';
+const ESRI_CREDIT = 'Esri, HERE, Garmin, © OpenStreetMap contributors';
+
+for (const layer of ['World_Light_Gray_Base', 'World_Light_Gray_Reference']) {
+  viewer.imageryLayers.addImageryProvider(
+    new Cesium.UrlTemplateImageryProvider({
+      url: `${ESRI_CANVAS}/${layer}/MapServer/tile/{z}/{y}/{x}`,
+      credit: ESRI_CREDIT,
+      maximumLevel: 16,
+    })
+  );
+}
 
 viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#eef0f3');
 viewer.scene.globe.enableLighting = false;
