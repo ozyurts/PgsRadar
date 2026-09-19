@@ -47,6 +47,23 @@ const FTMIN_TO_MS = 0.00508;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Descriptions come through shouting ("BOEING 737-800"). Title-case only when
+// there is no lower case to preserve, so mixed-case names like "A321neo"
+// survive untouched.
+function tidyModel(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  if (/[a-z]/.test(text)) return text;
+
+  return text
+    .split(' ')
+    // Leave anything with a digit alone: "737-800" must not become "737-800".
+    .map((word) =>
+      /\d/.test(word) ? word : word.charAt(0) + word.slice(1).toLowerCase()
+    )
+    .join(' ');
+}
+
 function normalise(ac) {
   const callsign = (ac.flight || '').trim();
   if (!callsign) return null;
@@ -66,6 +83,10 @@ function normalise(ac) {
     icao24: ac.hex,
     callsign,
     registration: ac.r || '',
+    // The aggregator already carries the airframe, so the type costs nothing
+    // extra: no second lookup, no second source to disagree with.
+    type: String(ac.t ?? '').trim() || null,
+    model: tidyModel(ac.desc),
     lat: ac.lat,
     lon: ac.lon,
     altitudeM: altFt * FT_TO_M,
