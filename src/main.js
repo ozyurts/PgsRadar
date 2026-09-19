@@ -1,7 +1,7 @@
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './style.css';
-import { fetchFleet } from './opensky.js';
+import { fetchFleet } from './flights.js';
 
 // No Cesium ion account required: we skip ion imagery/terrain entirely
 // and use a free, token-less basemap + a flat ellipsoid terrain model.

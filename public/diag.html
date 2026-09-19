@@ -14,80 +14,56 @@
     @media (prefers-color-scheme: dark) { body { background: #000; color: #f5f5f7; } }
     h1 { font-size: 20px; margin: 0 0 4px; }
     .sub { opacity: .6; font-size: 13px; margin-bottom: 20px; }
-    .test {
-      background: rgba(127,127,127,.1); border-radius: 12px;
-      padding: 12px 14px; margin-bottom: 10px;
-    }
+    .test { background: rgba(127,127,127,.1); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
     .test h2 { font-size: 15px; margin: 0 0 6px; display: flex; gap: 8px; align-items: center; }
     .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
     .pending { background: #8888; }
     .pass { background: #1a7f37; color: #fff; }
     .fail { background: #c0392b; color: #fff; }
-    pre {
-      margin: 6px 0 0; font-size: 12px; white-space: pre-wrap; word-break: break-word;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .85;
-    }
-    #verdict {
-      margin-top: 20px; padding: 14px; border-radius: 12px;
-      background: #ff6a13; color: #fff; font-weight: 600; white-space: pre-wrap;
-    }
+    pre { margin: 6px 0 0; font-size: 12px; white-space: pre-wrap; word-break: break-word;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .85; }
+    #verdict { margin-top: 20px; padding: 14px; border-radius: 12px;
+               background: #ff6a13; color: #fff; font-weight: 600; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h1>Bağlantı teşhisi</h1>
-  <div class="sub">Bu sayfa OpenSky'a hangi yoldan ulaşılabildiğini tarayıcınızdan test eder.</div>
+  <div class="sub">Veri yolunun çalışıp çalışmadığını bu cihazdan test eder.</div>
   <div id="tests"></div>
   <div id="verdict">Testler çalışıyor…</div>
 
 <script>
-const BBOX = 'lamin=35&lomin=25&lamax=43&lomax=45';
-const OPENSKY = 'https://opensky-network.org/api/states/all?' + BBOX;
-
 const TESTS = [
   {
     id: 'internet',
     title: '1. Genel internet (kontrol)',
-    run: () => fetch('https://example.com', { mode: 'no-cors', cache: 'no-store' })
-      .then(() => 'Ulaşıldı'),
+    run: () => fetch('https://example.com', { mode: 'no-cors', cache: 'no-store' }).then(() => 'Ulaşıldı'),
   },
   {
-    id: 'reach',
-    title: '2. OpenSky sunucusuna erişim (no-cors)',
-    run: () => fetch(OPENSKY, { mode: 'no-cors', cache: 'no-store' })
-      .then(() => 'Sunucuya TCP/TLS bağlantısı kuruldu'),
-  },
-  {
-    id: 'cors',
-    title: '3. OpenSky veriyi okumaya izin veriyor mu (cors)',
+    id: 'api',
+    title: '2. Veri uç noktası (/api/states)',
     run: async () => {
-      const r = await fetch(OPENSKY, { cache: 'no-store' });
+      const t0 = Date.now();
+      const r = await fetch('/api/states?prefix=PGT', { cache: 'no-store' });
       const t = await r.text();
-      return `HTTP ${r.status} · ${t.length} bayt · başlangıç: ${t.slice(0, 80)}`;
-    },
-  },
-  {
-    id: 'proxy',
-    title: '4. Kendi sunucumuz üzerinden (/api/states)',
-    run: async () => {
-      const r = await fetch('/api/states?' + BBOX, { cache: 'no-store' });
-      const t = await r.text();
-      // A completed request that carries an error status is still a failure.
-      if (!r.ok) throw new Error(`HTTP ${r.status} · ${t.slice(0, 160)}`);
-      return `HTTP ${r.status} · ${t.length} bayt`;
+      if (!r.ok) throw new Error(`HTTP ${r.status} · ${t.slice(0, 140)}`);
+      const j = JSON.parse(t);
+      return `HTTP 200 · ${Date.now() - t0} ms · kaynak: ${j.source}`
+        + `\nBulunan uçuş: ${(j.flights || []).length}`
+        + (j.degraded ? '\nUYARI: bazı bölge sorguları başarısız, kapsama eksik olabilir' : '')
+        + ((j.flights || []).length ? '\nÖrnek: ' + j.flights.slice(0, 3).map(f => f.callsign).join(', ') : '');
     },
   },
 ];
 
 const results = {};
 const host = document.getElementById('tests');
-
 for (const t of TESTS) {
   const el = document.createElement('div');
   el.className = 'test';
   el.innerHTML = `<h2>${t.title} <span class="badge pending" id="b-${t.id}">…</span></h2><pre id="p-${t.id}"></pre>`;
   host.appendChild(el);
 }
-
 function finish(t, ok, detail) {
   results[t.id] = ok;
   const b = document.getElementById('b-' + t.id);
@@ -95,30 +71,15 @@ function finish(t, ok, detail) {
   b.textContent = ok ? 'BAŞARILI' : 'BAŞARISIZ';
   document.getElementById('p-' + t.id).textContent = detail;
 }
-
-function verdict() {
-  const v = document.getElementById('verdict');
-  if (!results.internet) {
-    v.textContent = 'İnternet bağlantısında genel bir sorun var gibi görünüyor.';
-  } else if (results.cors) {
-    v.textContent = 'OpenSky doğrudan çalışıyor. Sorun başka yerde — bu sonucu Claude\'a iletin.';
-  } else if (results.reach) {
-    v.textContent = 'TEŞHİS: OpenSky sunucusuna ulaşılıyor ama tarayıcının veriyi okumasına izin vermiyor (CORS engeli). Veriyi sunucu tarafından çekmek gerekiyor.';
-  } else {
-    v.textContent = 'TEŞHİS: OpenSky sunucusuna ağ seviyesinde hiç ulaşılamıyor (engelli ya da kapalı). Sorun sadece CORS değil.';
-  }
-  v.textContent += '\n\nÖzet kod: ' + TESTS.map(t => t.id[0] + (results[t.id] ? '1' : '0')).join(' ');
-}
-
 (async () => {
   for (const t of TESTS) {
-    try {
-      finish(t, true, await t.run());
-    } catch (err) {
-      finish(t, false, String(err && err.message || err));
-    }
+    try { finish(t, true, await t.run()); }
+    catch (err) { finish(t, false, String(err && err.message || err)); }
   }
-  verdict();
+  const v = document.getElementById('verdict');
+  if (!results.internet) v.textContent = 'İnternet bağlantısında genel bir sorun var gibi görünüyor.';
+  else if (results.api) v.textContent = 'Veri yolu çalışıyor. Ana sayfada uçuşlar görünmelidir.';
+  else v.textContent = 'Veri uç noktası hata veriyor. Yukarıdaki satırı Claude\'a iletin.';
 })();
 </script>
 </body>
