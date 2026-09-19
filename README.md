@@ -36,6 +36,13 @@ Doğrudan çağrı başarısız olursa (CORS, rate limit) uygulama `/api/states`
 altındaki serverless yedeğe düşer. Bu yedek tek bir çıkış IP'si kullandığı
 için yanıtı edge'de 20 saniye cache'ler.
 
+> **Not:** Vercel'in `iad1` bölgesinden OpenSky'a yapılan bağlantılar şu an
+> zaman aşımına uğruyor (`UND_ERR_CONNECT_TIMEOUT`) — OpenSky datacenter
+> IP aralıklarını engelliyor gibi görünüyor. Yani yedek yol pratikte
+> çalışmıyor; asıl veri yolu tarayıcıdan yapılan doğrudan çağrıdır. Yedek,
+> bu durum değişirse veya OAuth2 kimlik bilgileri eklenirse devreye girmek
+> üzere yerinde bırakıldı.
+
 ### Daha yüksek kota (opsiyonel)
 
 Vercel projesine `OPENSKY_CLIENT_ID` ve `OPENSKY_CLIENT_SECRET` ortam

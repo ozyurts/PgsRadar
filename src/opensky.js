@@ -63,6 +63,18 @@ async function getJson(url, signal) {
   return res.json();
 }
 
+// OpenSky appears to drop connections from datacenter ranges, so the proxy
+// can sit there until its own 10s connect timeout. Cap the wait so a failing
+// fallback surfaces the error quickly instead of stalling the poll.
+const PROXY_TIMEOUT_MS = 6000;
+
+function withTimeout(signal, ms) {
+  if (typeof AbortSignal?.timeout !== 'function') return signal;
+  const timeout = AbortSignal.timeout(ms);
+  if (typeof AbortSignal.any !== 'function') return signal ?? timeout;
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 // Once one of the two routes works, stick with it rather than re-testing
 // the direct call (and burning a credit on it) every poll.
 let preferProxy = false;
@@ -76,7 +88,10 @@ async function getStates(signal) {
   } catch (err) {
     if (signal?.aborted) throw err;
     // Direct call blocked or throttled — try the server-side proxy once.
-    const data = await getJson(`${PROXY_URL}?${query()}`, signal);
+    const data = await getJson(
+      `${PROXY_URL}?${query()}`,
+      withTimeout(signal, PROXY_TIMEOUT_MS)
+    );
     preferProxy = true;
     return data;
   }
