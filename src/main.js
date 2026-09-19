@@ -437,6 +437,18 @@ function renderList() {
 // rather than written into the card of whatever is selected by then.
 let routeRequest = null;
 
+/** Prefer the airport's name, then its city, and fall back to the code. */
+function portLabel(port) {
+  return port?.name || port?.city || port?.icao || '—';
+}
+
+/** The long form, for a tooltip: everything the shortened label dropped. */
+function portTitle(port) {
+  return [port?.name, port?.city, port?.country]
+    .filter((part, i, all) => part && all.indexOf(part) === i)
+    .join(', ') || port?.icao || '—';
+}
+
 function showRoute(callsign, result) {
   // The selection moved on while this was in flight.
   if (!activeIcao || fleet.get(activeIcao)?.flight.callsign !== callsign) return;
@@ -446,13 +458,20 @@ function showRoute(callsign, result) {
 
   if (result?.status === 'confirmed') {
     el.className = 'route';
-    el.append(`${result.origin} → ${result.destination}`);
-    if (result.originName && result.destinationName) {
-      const cities = document.createElement('span');
-      cities.className = 'cities';
-      cities.textContent = `${result.originName} → ${result.destinationName}`;
-      el.append(cities);
-    }
+
+    // Name first, code second: "Sabiha Gökçen" tells you more at a glance
+    // than "LTFJ", but the code is what anyone would cross-check against, so
+    // it stays on the card rather than being replaced.
+    const ports = document.createElement('span');
+    ports.className = 'ports';
+    ports.textContent = `${portLabel(result.origin)} → ${portLabel(result.destination)}`;
+    ports.title = `${portTitle(result.origin)} → ${portTitle(result.destination)}`;
+
+    const codes = document.createElement('span');
+    codes.className = 'codes';
+    codes.textContent = `${result.origin.icao} → ${result.destination.icao}`;
+
+    el.append(ports, codes);
   } else {
     el.className = 'route muted';
     el.textContent =

@@ -38,17 +38,39 @@ async function fromAdsbdb(callsign) {
   if (!res.ok) return null;
 
   const route = (await res.json())?.response?.flightroute;
-  const origin = normaliseCode(route?.origin?.icao_code);
-  const destination = normaliseCode(route?.destination?.icao_code);
+  const origin = describe(route?.origin);
+  const destination = describe(route?.destination);
   if (!origin || !destination) return null;
 
+  return { origin, destination };
+}
+
+// Airport names arrive with boilerplate ("Manas International Airport") that
+// eats the width of a phone-sized card without adding meaning.
+const NAME_NOISE = /\s*(international|intl\.?|regional|airport|airbase|air base)\b/gi;
+
+function shortenName(value) {
+  const name = String(value ?? '').trim();
+  if (!name) return null;
+  const trimmed = name.replace(NAME_NOISE, '').replace(/\s{2,}/g, ' ').trim();
+  // Never shorten a name into nothing — some airports are literally "Airport".
+  return trimmed.length >= 3 ? trimmed : name;
+}
+
+/** Only adsbdb carries airport detail; hexdb answers with codes alone. */
+function describe(port) {
+  const icao = normaliseCode(port?.icao_code);
+  if (!icao) return null;
+
+  const name = shortenName(port?.name);
+  const city = String(port?.municipality ?? '').trim() || null;
+
   return {
-    origin,
-    destination,
-    // Only adsbdb carries names; used to label the pair when it is confirmed.
-    originName: route?.origin?.municipality || route?.origin?.name || null,
-    destinationName:
-      route?.destination?.municipality || route?.destination?.name || null,
+    icao,
+    iata: String(port?.iata_code ?? '').trim().toUpperCase() || null,
+    name,
+    city,
+    country: String(port?.country_name ?? '').trim() || null,
   };
 }
 
@@ -90,14 +112,16 @@ export default async function handler(req, res) {
   ]);
 
   let payload;
-  if (a && h && a.origin === h.origin && a.destination === h.destination) {
+  if (
+    a && h &&
+    a.origin.icao === h.origin &&
+    a.destination.icao === h.destination
+  ) {
     payload = {
       callsign,
       status: 'confirmed',
       origin: a.origin,
       destination: a.destination,
-      originName: a.originName,
-      destinationName: a.destinationName,
       sources: ['adsbdb', 'hexdb'],
     };
   } else if (a || h) {

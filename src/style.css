@@ -299,12 +299,19 @@ body {
   font-size: 13px;
   font-weight: 600;
 }
-.detail-card .route .cities {
+.detail-card .route .ports {
   display: block;
-  margin-top: 3px;
-  font-family: var(--font-sans, inherit);
-  font-size: 11.5px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.detail-card .route .codes {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 400;
+  letter-spacing: 0.02em;
   color: var(--text-secondary);
 }
 /* Unconfirmed routes stay visually quiet: they carry no information to act
