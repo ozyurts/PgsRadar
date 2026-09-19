@@ -10,8 +10,7 @@
 //
 // adsb.lol and adsb.fi are community ADS-B aggregators, need no key, and
 // answer from fra1 in 50-80ms. Their API caps a query at 250 nautical miles
-// around a point, so the fleet's range is covered by a set of overlapping
-// circles that are swept one after another and merged.
+// around a point, so the fleet's range is covered by overlapping circles.
 
 const SOURCES = [
   { name: 'adsb.lol', base: 'https://api.adsb.lol/v2' },
@@ -30,11 +29,18 @@ const CIRCLES = [
 const RADIUS_NM = 250;
 const CACHE_SECONDS = 60;
 const UPSTREAM_TIMEOUT_MS = 8000;
+// These are free community services and they rate-limit by request rate, not
+// by concurrency: twelve queries sent back to back cost six 429s regardless of
+// whether they go out in parallel or in a tight loop. So the circles are split
+// across both providers and spaced out within each sweep.
+const SPACING_MS = 400;
 const USER_AGENT = 'pgsradar (+https://pgsradar.vercel.app)';
 
 const FT_TO_M = 0.3048;
 const KT_TO_MS = 0.514444;
 const FTMIN_TO_MS = 0.00508;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function normalise(ac) {
   const callsign = (ac.flight || '').trim();
@@ -74,15 +80,16 @@ async function queryCircle(base, lat, lon) {
   return body.ac || body.aircraft || [];
 }
 
-async function collect(source, prefix) {
-  // Sequential, not Promise.all: firing all twelve at once made the upstream
-  // drop several of them, and a dropped circle is a hole in the map. At ~60ms
-  // each the whole sweep still costs well under a second, and the edge cache
-  // means we only pay it once per CACHE_SECONDS.
-  const byHex = new Map();
-  const failures = [];
+/**
+ * Query each circle against one source, spaced out, collecting aircraft into
+ * `byHex`. Returns the circles this sweep could not fetch.
+ */
+async function sweep(source, circles, prefix, byHex) {
+  const missed = [];
 
-  for (const [lat, lon] of CIRCLES) {
+  for (let i = 0; i < circles.length; i++) {
+    if (i > 0) await sleep(SPACING_MS);
+    const [lat, lon] = circles[i];
     try {
       // The circles overlap, so the same aircraft comes back more than once.
       for (const ac of await queryCircle(source.base, lat, lon)) {
@@ -92,18 +99,11 @@ async function collect(source, prefix) {
         byHex.set(flight.icao24, flight);
       }
     } catch (err) {
-      failures.push(`${lat},${lon}: ${err.message}`);
+      missed.push({ circle: circles[i], reason: `${source.name}: ${err.message}` });
     }
   }
 
-  if (failures.length === CIRCLES.length) {
-    throw new Error(`every circle failed (${failures[0]})`);
-  }
-  if (failures.length) {
-    console.warn(`${source.name} partial coverage:`, failures.join(' | '));
-  }
-
-  return { flights: [...byHex.values()], degraded: failures.length > 0 };
+  return missed;
 }
 
 export default async function handler(req, res) {
@@ -111,26 +111,52 @@ export default async function handler(req, res) {
   const candidate = String(Array.isArray(raw) ? raw[0] : raw ?? 'PGT').toUpperCase();
   const prefix = /^[A-Z0-9]{1,8}$/.test(candidate) ? candidate : 'PGT';
 
-  const problems = [];
-  for (const source of SOURCES) {
+  const byHex = new Map();
+
+  // Split the circles between the providers so neither sees the full rate,
+  // and run the two sweeps concurrently — the limits are per provider.
+  const [primary, secondary] = SOURCES;
+  const [missedA, missedB] = await Promise.all([
+    sweep(primary, CIRCLES.filter((_, i) => i % 2 === 0), prefix, byHex),
+    sweep(secondary, CIRCLES.filter((_, i) => i % 2 === 1), prefix, byHex),
+  ]);
+
+  // Anything one provider refused, give the other a chance at.
+  const stillMissing = [];
+  const retries = [...missedA, ...missedB];
+  for (let i = 0; i < retries.length; i++) {
+    const { circle, reason } = retries[i];
+    const other = missedA.includes(retries[i]) ? secondary : primary;
+    if (i > 0) await sleep(SPACING_MS);
     try {
-      const { flights, degraded } = await collect(source, prefix);
-      res.setHeader(
-        'cache-control',
-        `s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS * 3}`
-      );
-      res.status(200).json({
-        time: Math.floor(Date.now() / 1000),
-        source: source.name,
-        degraded,
-        flights,
-      });
-      return;
+      for (const ac of await queryCircle(other.base, circle[0], circle[1])) {
+        const flight = normalise(ac);
+        if (!flight) continue;
+        if (!flight.callsign.toUpperCase().startsWith(prefix)) continue;
+        byHex.set(flight.icao24, flight);
+      }
     } catch (err) {
-      problems.push(`${source.name}: ${err.message}`);
+      stillMissing.push(`${circle}: ${reason} / ${other.name}: ${err.message}`);
     }
   }
 
-  console.error('All upstream sources failed:', problems.join(' | '));
-  res.status(502).json({ error: 'Veri kaynaklarına ulaşılamadı' });
+  if (stillMissing.length === CIRCLES.length) {
+    console.error('Every circle failed:', stillMissing.join(' | '));
+    res.status(502).json({ error: 'Veri kaynaklarına ulaşılamadı' });
+    return;
+  }
+  if (stillMissing.length) {
+    console.warn('Partial coverage:', stillMissing.join(' | '));
+  }
+
+  res.setHeader(
+    'cache-control',
+    `s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS * 3}`
+  );
+  res.status(200).json({
+    time: Math.floor(Date.now() / 1000),
+    sources: SOURCES.map((s) => s.name),
+    degraded: stillMissing.length > 0,
+    flights: [...byHex.values()],
+  });
 }
