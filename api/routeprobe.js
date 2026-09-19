@@ -67,16 +67,44 @@ async function routeset(flights) {
       })),
     }),
   });
-  if (!res.ok) {
-    return { status: res.status, body: (await res.text()).slice(0, 200) };
-  }
-  const body = await res.json();
+  // Dump the raw text: a previous run got a 2xx with an empty body, which
+  // JSON.parse turns into a misleading syntax error.
+  const text = await res.text();
+  let parsed;
+  try { parsed = JSON.parse(text); } catch {}
   return {
-    status: 200,
+    status: res.status,
+    rawLength: text.length,
+    raw: text.slice(0, 300),
     // One request covers every aircraft, which matters: these services rate
     // limit hard and we have ~25 flights up at a time.
-    batched: Array.isArray(body) ? body.length : null,
-    sample: Array.isArray(body) ? body.slice(0, 4) : body,
+    batched: Array.isArray(parsed) ? parsed.length : null,
+    sample: Array.isArray(parsed) ? parsed.slice(0, 3) : parsed,
+  };
+}
+
+/** Pull the routeset request schema out of the published OpenAPI document. */
+async function routesetSchema() {
+  const res = await fetch('https://api.adsb.lol/openapi.json', {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    headers: { 'user-agent': UA },
+  });
+  if (!res.ok) return { status: res.status };
+  const spec = await res.json();
+  const path = spec.paths?.['/api/0/routeset'];
+  const ref = path?.post?.requestBody?.content?.['application/json']?.schema?.$ref;
+  const name = ref?.split('/').pop();
+  const schema = name ? spec.components?.schemas?.[name] : undefined;
+
+  // Resolve one level of nesting so the plane item fields are visible too.
+  const itemRef = schema?.properties?.planes?.items?.$ref;
+  const itemName = itemRef?.split('/').pop();
+
+  return {
+    methods: path ? Object.keys(path) : null,
+    requestSchemaName: name,
+    requestSchema: schema,
+    planeItem: itemName ? spec.components?.schemas?.[itemName] : undefined,
   };
 }
 
@@ -132,6 +160,13 @@ export default async function handler(req, res) {
     lol = { error: String(err?.cause ?? err).slice(0, 160) };
   }
 
+  let schema;
+  try {
+    schema = await routesetSchema();
+  } catch (err) {
+    schema = { error: String(err?.cause ?? err).slice(0, 160) };
+  }
+
   res.setHeader('cache-control', 'no-store');
   res.status(200).json({
     flightsSeen: flights.length,
@@ -142,5 +177,6 @@ export default async function handler(req, res) {
     },
     rows,
     adsblolRouteset: lol,
+    adsblolSchema: schema,
   });
 }
