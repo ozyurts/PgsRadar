@@ -1,7 +1,7 @@
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './style.css';
-import { fetchFleet } from './flights.js';
+import { fetchFleet, fetchRoute } from './flights.js';
 
 // No Cesium ion account required: we skip ion imagery/terrain entirely
 // and use a free, token-less basemap + a flat ellipsoid terrain model.
@@ -223,10 +223,13 @@ const els = {
   dHeading: document.getElementById('dHeading'),
   dPos: document.getElementById('dPos'),
   closeDetail: document.getElementById('closeDetail'),
+  dRoute: document.getElementById('dRoute'),
 };
 
 els.closeDetail.addEventListener('click', () => {
   activeIcao = null;
+  routeRequest?.abort();
+  els.dRoute.hidden = true;
   els.detail.classList.remove('visible');
   renderList();
 });
@@ -429,11 +432,60 @@ function renderList() {
     });
 }
 
+// Route lookups are per selection and can outlive it. Keeping the request
+// that is in flight lets a late answer for a deselected aircraft be dropped
+// rather than written into the card of whatever is selected by then.
+let routeRequest = null;
+
+function showRoute(callsign, result) {
+  // The selection moved on while this was in flight.
+  if (!activeIcao || fleet.get(activeIcao)?.flight.callsign !== callsign) return;
+
+  const el = els.dRoute;
+  el.replaceChildren();
+
+  if (result?.status === 'confirmed') {
+    el.className = 'route';
+    el.append(`${result.origin} → ${result.destination}`);
+    if (result.originName && result.destinationName) {
+      const cities = document.createElement('span');
+      cities.className = 'cities';
+      cities.textContent = `${result.originName} → ${result.destinationName}`;
+      el.append(cities);
+    }
+  } else {
+    el.className = 'route muted';
+    el.textContent =
+      result?.status === 'conflict'
+        ? 'Rota doğrulanamadı — kaynaklar çelişiyor'
+        : 'Rota bilgisi yok';
+  }
+  el.hidden = false;
+}
+
+function loadRoute(callsign) {
+  routeRequest?.abort();
+  const controller = new AbortController();
+  routeRequest = controller;
+
+  els.dRoute.hidden = true;
+  fetchRoute(callsign, { signal: controller.signal })
+    .then((result) => showRoute(callsign, result))
+    .catch((err) => {
+      if (err?.name !== 'AbortError') showRoute(callsign, null);
+    });
+}
+
 function selectFlight(icao24, flyTo) {
   const f = flights.find((x) => x.icao24 === icao24);
   if (!f) return;
+  const changed = activeIcao !== icao24;
   activeIcao = icao24;
   renderList();
+
+  // Only on a genuine change of selection: each poll re-runs selectFlight to
+  // refresh the numbers, and refetching the route every 30s would be waste.
+  if (changed) loadRoute(f.callsign);
 
   els.dCallsign.textContent = f.callsign;
   els.dOrigin.textContent = f.registration || '—';

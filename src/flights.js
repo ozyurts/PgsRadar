@@ -25,3 +25,16 @@ export async function fetchFleet({ prefix = 'PGT', signal } = {}) {
   const data = await res.json();
   return data.flights || [];
 }
+
+/**
+ * Look up the departure/arrival pair for a callsign. Resolves to null when the
+ * two upstream databases disagree or neither knows it — see api/route.js for
+ * why a disputed route is withheld rather than guessed at.
+ */
+export async function fetchRoute(callsign, { signal } = {}) {
+  const res = await fetch(`/api/route?callsign=${encodeURIComponent(callsign)}`, {
+    signal,
+  });
+  if (!res.ok) return { status: 'unknown' };
+  return res.json();
+}

@@ -62,6 +62,26 @@ parlak olsa harita spagettiye döner.
 > değil, "mevcut rotası sürerse nereye varır" demektir. Süresi
 > `src/main.js` içindeki `COURSE_SECONDS` ile ayarlanır.
 
+### Kalkış/varış (çapraz doğrulama)
+
+Gerçek kalkış–varış çifti `api/route.js` ile ayrıca çözülür: çağrı işareti
+[adsbdb](https://www.adsbdb.com/) ve [hexdb.io](https://hexdb.io/)'ya birlikte
+sorulur ve **yalnızca ikisi de aynı çifti verdiğinde** gösterilir.
+
+Kural şundan doğdu: ikisi de neredeyse her PGT çağrı işaretine cevap veriyor
+ve yanıldıklarında da aynı özgüvenle cevap veriyorlar. Canlı Pegasus
+uçuşlarında ölçüldüğünde 6 uçuşun 2'sinde **tamamen farklı** havaalanı çifti
+verdiler. Tek kaynağa güvenmek, kullanıcıya makul görünen yanlış bir rotayı
+azımsanmayacak sıklıkta göstermek demekti — kimse doğru görünen bir etiketi
+sorgulamaz. Çeliştiklerinde aralarından birini seçmek yerine "doğrulanamadı"
+denir ve adaylar bilinçli olarak gizlenir; "ya A ya B" demek, okuyucuyu
+tahmin etmeye davet eder.
+
+Sorgu yalnızca kullanıcının seçtiği uçuş için yapılır (filonun tamamı için
+değil) ve bir çağrı işaretinin rotası uçuş sırasında değişmediği için yanıt
+6 saat cache'lenir. Seçim değişmediği sürece anketler yeniden sorgu
+tetiklemez.
+
 Seçim vurgusu uçak başına değil, seçili olanı takip eden tek bir katman
 olarak kuruludur; aksi halde her uçakta biri hariç hep boşta duran bir
 vurgu çifti taşınırdı.
@@ -132,9 +152,12 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
 
 ## Bilinen sınırlamalar / geliştirilebilecek noktalar
 
-- **Uçuş rotası bilgisi**: ADS-B yayını kalkış/varış havaalanı bilgisi
-  içermez — sadece anlık konum/irtifa/hız/heading verir. Rota bilgisi
-  göstermek isterseniz ayrı bir tarife kaynağı gerekir.
+- **Kalkış/varış kapsaması**: Çapraz doğrulama gereği, iki kaynak
+  çeliştiğinde rota gösterilmez; ölçümde bu uçuşların yaklaşık üçte biriydi.
+  Kapsamayı yükseltmek doğruluktan ödün vermek anlamına gelir. Kesin bilgi
+  isteyen bir kullanım için ücretli bir tarife API'si (AeroDataBox,
+  FlightAware AeroAPI, aviationstack) gerekir — bunlar tahmine değil uçuş
+  planına dayanır.
 - **Heading döndürme**: Uçak ikonu ekran-uzayında (`alignedAxis: UNIT_Z`)
   döndürülüyor; bu çoğu görünümde doğru sonucu verir ama kamera aşırı
   eğildiğinde küçük sapmalar olabilir.
