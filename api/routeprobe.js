@@ -94,12 +94,26 @@ function scoreOf(results) {
   };
 }
 
+// Fetch live PGT callsigns straight from the aggregator rather than from our
+// own /api/states: deployment protection answers that with an HTML login page,
+// so the probe would be parsing a web page instead of JSON.
+async function liveCallsigns() {
+  const res = await fetch(
+    'https://api.adsb.lol/v2/lat/39.5/lon/32.0/dist/250',
+    { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { 'user-agent': UA } }
+  );
+  const body = await res.json();
+  return (body.ac || [])
+    .filter((a) => (a.flight || '').trim().toUpperCase().startsWith('PGT'))
+    .map((a) => ({
+      callsign: (a.flight || '').trim(),
+      lat: a.lat,
+      lon: a.lon,
+    }));
+}
+
 export default async function handler(req, res) {
-  const base = `https://${process.env.VERCEL_URL || req.headers.host}`;
-  const upstream = await fetch(`${base}/api/states?prefix=PGT`, {
-    signal: AbortSignal.timeout(20000),
-  });
-  const { flights = [] } = await upstream.json();
+  const flights = await liveCallsigns();
   const sample = flights.slice(0, 8);
 
   const rows = [];
