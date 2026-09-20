@@ -307,7 +307,23 @@ const els = {
   dPos: document.getElementById('dPos'),
   closeDetail: document.getElementById('closeDetail'),
   dRoute: document.getElementById('dRoute'),
+  statusPill: document.getElementById('statusPill'),
+  panel: document.getElementById('panel'),
+  scrim: document.getElementById('scrim'),
 };
+
+// ---------- Flight list sheet (phones) ----------
+// On a narrow screen the list is a sheet rather than a fixed column. Desktop
+// CSS ignores the class, so the same handlers are harmless there.
+function setPanelOpen(open) {
+  document.body.classList.toggle('panel-open', open);
+  els.statusPill?.setAttribute('aria-expanded', String(open));
+}
+
+els.statusPill?.addEventListener('click', () => {
+  setPanelOpen(!document.body.classList.contains('panel-open'));
+});
+els.scrim?.addEventListener('click', () => setPanelOpen(false));
 
 els.closeDetail.addEventListener('click', () => {
   activeIcao = null;
@@ -512,7 +528,12 @@ function renderList() {
       );
 
       row.append(dot, info, metrics);
-      row.addEventListener('click', () => selectFlight(f.icao24, true));
+      row.addEventListener('click', () => {
+        selectFlight(f.icao24, true);
+        // The point of picking one is to look at it, so get the sheet out of
+        // the way instead of leaving it covering the globe.
+        setPanelOpen(false);
+      });
       els.list.appendChild(row);
     });
 }

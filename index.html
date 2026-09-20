@@ -12,18 +12,14 @@
     <div id="cesiumContainer"></div>
 
     <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark"></span>
-        <div class="brand-text">
-          <h1>PGS Radar</h1>
-          <p>Pegasus filosu · canlı konum</p>
-        </div>
-      </div>
-      <div class="status" id="statusPill">
+      <button class="status" id="statusPill" type="button" aria-expanded="false" aria-controls="panel">
         <span class="status-dot" id="statusDot"></span>
         <span id="statusText">Bağlanıyor…</span>
-      </div>
+        <span class="status-chevron" aria-hidden="true"></span>
+      </button>
     </header>
+
+    <div class="scrim" id="scrim"></div>
 
     <aside class="panel" id="panel">
       <div class="panel-head">

@@ -130,6 +130,22 @@ Uydu zemini koyu olduğu için küre ve uzay rengi, küre üstündeki yazılar v
 Cesium'un atıf şeridi `body[data-basemap]` üzerinden ayrıca ayarlanır; aksi
 halde açık tema grileri koyu zeminde kayboluyordu.
 
+### Mobil yerleşim
+
+680px altında uçuş listesi eskiden tamamen gizleniyordu; uçuş seçmenin tek
+yolu küredeki ikonu bulup dokunmaktı. Artık liste alttan açılan bir panel ve
+kolu da **durum rozetinin kendisi** — zaten uçuş sayısını gösterdiği için
+doğal bir eşleşme, ayrıca alt şeride (footer, zemin seçici, atıf) dördüncü
+bir eleman sıkıştırmak gerekmiyor.
+
+Panel cam efektli olduğundan açıkken altındaki yazılar içinden okunuyordu;
+footer, zemin seçici ve Cesium atıf şeridi açıkken soluklaştırılır. Karartma
+katmanı yalnızca mobilde etkindir: masaüstünde liste zaten ekranda olduğu
+için rozetin dokunuşu görünür bir iş yapmamalı.
+
+Üstteki "PGS Radar" marka bloğu kaldırıldı — ekranda yer kaplıyor ama bir işe
+yaramıyordu; ad zaten sayfa başlığında duruyor.
+
 ### Bölge kilidi
 
 Fonksiyon `vercel.json` içinde `fra1`'e sabitlenmiştir. Bu, OpenSky döneminden
@@ -210,5 +226,5 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
   Saf sayısal olanlarda `PGT612 → PC612` dönüşümü kendimiz yapılabilir ama
   bu bir çıkarımdır, doğrulanmış veri değil — sayının sefer numarasıyla
   eşleşmesi yaygın bir pratiktir, kural değil.
-- **Mobil**: 680px altında uçuş listesi paneli gizlenir; küre üzerinden
-  uçağa dokunarak detay kartına ulaşılır.
+- **Mobil**: 680px altında uçuş listesi, durum rozetine dokununca açılan bir
+  alt panele dönüşür (bkz. aşağıdaki not).

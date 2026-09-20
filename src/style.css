@@ -86,7 +86,7 @@ body {
   right: 20px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   z-index: 10;
   pointer-events: none;
 }
@@ -430,8 +430,35 @@ body[data-basemap='uydu'] .cesium-viewer .cesium-viewer-bottom {
 }
 
 @media (max-width: 680px) {
-  .panel { display: none; }
-  .brand-text p { display: none; }
+  /* The list used to be hidden outright here, which left no way to pick a
+     flight except hunting for its icon on the globe. It is now a sheet the
+     status pill pulls up. */
+  .panel {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    max-height: 62vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transform: translateY(101%);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 30;
+  }
+  body.panel-open .panel {
+    transform: translateY(0);
+  }
+  .status-chevron { display: inline-block; }
+
+  /* The sheet is translucent, so anything left underneath reads through it. */
+  body.panel-open .foot,
+  body.panel-open .cesium-viewer .cesium-viewer-bottom,
+  body.panel-open .basemap-switch {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
 }
 
 @media (max-width: 680px) {
@@ -440,4 +467,50 @@ body[data-basemap='uydu'] .cesium-viewer .cesium-viewer-bottom {
   .basemap-switch {
     bottom: calc(46px + env(safe-area-inset-bottom, 0px));
   }
+}
+
+/* The status pill doubles as the sheet handle on phones; on desktop the list
+   is always there, so it stays a plain readout. */
+.status {
+  appearance: none;
+  font: inherit;
+  cursor: default;
+}
+.status-chevron {
+  display: none;
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-135deg) translate(-2px, -2px);
+  opacity: 0.55;
+  transition: transform 0.2s ease;
+}
+body.panel-open .status-chevron {
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 29;
+  background: rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+/* Only phones have a sheet to dim behind. On desktop the list is always on
+   screen, so the pill's toggle must stay a no-op rather than veiling the map
+   for no reason. */
+@media (max-width: 680px) {
+  body.panel-open .scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .status { cursor: pointer; pointer-events: auto; }
+  .status:active { transform: scale(0.97); }
 }
