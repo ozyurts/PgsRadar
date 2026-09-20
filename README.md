@@ -65,6 +65,11 @@ düşer; aksi halde çizgi tamamen kaybolurdu.
 Çizgi uçağın anlık irtifasında sabit kalır: iniş profilini bu veri bilmiyor,
 çizmek uydurmak olurdu.
 
+Çizginin ucundaki varış havalimanı, IATA koduyla haritada işaretlenir. Yakın
+zumda kadrajın dışındadır — uzaklaşınca ya da çizgi boyunca kaydırınca
+görünür. Yalnızca varış işaretlenir: kalkış uçağın arkasında kalır ve
+"bu nereye gidiyor" sorusuna bir şey katmaz.
+
 > **Not:** Yön projeksiyonuna düşüldüğünde çizgi bir **uçuş planı değildir**;
 > "mevcut rotası sürerse nereye varır" demektir. Süresi `src/main.js`
 > içindeki `COURSE_SECONDS` ile ayarlanır.

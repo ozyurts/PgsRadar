@@ -359,7 +359,7 @@ els.closeDetail.addEventListener('click', () => {
   activeIcao = null;
   activeRoute = null;
   routeRequest?.abort();
-  clearAirports();
+  clearDestination();
   els.dRoute.hidden = true;
   els.detail.classList.remove('visible');
   renderList();
@@ -604,76 +604,48 @@ function portTitle(port) {
     .join(', ') || port?.icao || '—';
 }
 
-// ---------- Airport markers (demo, behind ?airports=1) ----------
-// Only the selected flight's two airports are plotted, not every field in the
-// region: the pair is what the card is already talking about, and a globe
-// peppered with pins would bury the aircraft the app exists to show.
-const SHOW_AIRPORTS =
-  new URLSearchParams(location.search).get('airports') === '1';
-
+// ---------- Destination marker ----------
+// Only the destination is marked, and only for the selected flight. The
+// origin is behind the aircraft and adds nothing to "where is this going";
+// the course line already runs to this point, so the marker is its endpoint.
+// At close zoom it sits off screen, which is fine — it is what you find when
+// you zoom out or pan along the line.
 const AIRPORT_COLOR = Cesium.Color.fromCssColorString('#3b4a5a');
-let airportEntities = [];
+let destinationEntity = null;
 
-function clearAirports() {
-  for (const entity of airportEntities) viewer.entities.remove(entity);
-  airportEntities = [];
+function clearDestination() {
+  if (destinationEntity) viewer.entities.remove(destinationEntity);
+  destinationEntity = null;
 }
 
-function addAirport(port) {
-  if (port?.lat == null || port?.lon == null) return null;
-  const position = Cesium.Cartesian3.fromDegrees(port.lon, port.lat, 0);
+function showDestination(result) {
+  clearDestination();
 
-  airportEntities.push(
-    viewer.entities.add({
-      position,
-      point: {
-        pixelSize: 7,
-        color: Cesium.Color.WHITE,
-        outlineColor: AIRPORT_COLOR,
-        outlineWidth: 2,
-        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-      },
-      label: {
-        text: port.iata || port.icao,
-        font: '600 12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-        fillColor: AIRPORT_COLOR,
-        // An outline keeps the code readable over both the pale canvas and
-        // dark satellite imagery without restyling per basemap.
-        outlineColor: Cesium.Color.WHITE,
-        outlineWidth: 3,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new Cesium.Cartesian2(0, -14),
-        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-      },
-    })
-  );
-  return position;
-}
+  const port = result?.status === 'confirmed' ? result.destination : null;
+  if (port?.lat == null || port?.lon == null) return;
 
-function showAirports(result) {
-  clearAirports();
-  if (!SHOW_AIRPORTS || result?.status !== 'confirmed') return;
-
-  const from = addAirport(result.origin);
-  const to = addAirport(result.destination);
-  if (!from || !to) return;
-
-  // Grey and dashed, deliberately unlike the orange course projection: this
-  // line is the scheduled pair, not where the aircraft is presently pointed.
-  airportEntities.push(
-    viewer.entities.add({
-      polyline: {
-        positions: [from, to],
-        width: 1,
-        material: new Cesium.PolylineDashMaterialProperty({
-          color: AIRPORT_COLOR.withAlpha(0.5),
-          dashLength: 10,
-        }),
-      },
-    })
-  );
-
+  destinationEntity = viewer.entities.add({
+    position: Cesium.Cartesian3.fromDegrees(port.lon, port.lat, 0),
+    point: {
+      pixelSize: 8,
+      color: Cesium.Color.WHITE,
+      outlineColor: AIRPORT_COLOR,
+      outlineWidth: 2,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+    },
+    label: {
+      text: port.iata || port.icao,
+      font: '600 12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+      fillColor: AIRPORT_COLOR,
+      // A white halo keeps the code readable over the pale canvas and over
+      // satellite imagery alike, without restyling per basemap.
+      outlineColor: Cesium.Color.WHITE,
+      outlineWidth: 3,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      pixelOffset: new Cesium.Cartesian2(0, -15),
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+    },
+  });
 }
 
 function showRoute(callsign, result) {
@@ -708,7 +680,7 @@ function showRoute(callsign, result) {
   }
   activeRoute = result;
   el.hidden = false;
-  showAirports(result);
+  showDestination(result);
 }
 
 function loadRoute(callsign) {
