@@ -263,6 +263,11 @@ function trailPositions(icao24) {
   return points.length >= 2 ? points : undefined;
 }
 
+// The confirmed route for the selected flight, when there is one. The course
+// line aims at the destination rather than at wherever the nose currently
+// points, which is what anyone reads the line as meaning anyway.
+let activeRoute = null;
+
 function coursePositions(icao24) {
   const rec = icao24 && fleet.get(icao24);
   if (!rec) return undefined;
@@ -273,6 +278,31 @@ function coursePositions(icao24) {
   const from = project(icao24);
   if (!from) return undefined;
 
+  const destination =
+    activeRoute?.status === 'confirmed' ? activeRoute.destination : null;
+
+  if (destination?.lat != null && destination?.lon != null) {
+    // Great circle all the way to the airport: at close zoom it leaves the
+    // frame pointing the right way, and zoomed out it lands on the field.
+    const geodesic = new Cesium.EllipsoidGeodesic(
+      Cesium.Cartographic.fromDegrees(from.lon, from.lat),
+      Cesium.Cartographic.fromDegrees(destination.lon, destination.lat)
+    );
+
+    const points = [];
+    for (let i = 0; i <= COURSE_STEPS; i++) {
+      const at = geodesic.interpolateUsingFraction(i / COURSE_STEPS);
+      // Held at the present altitude: the descent profile is not something
+      // this data knows, so drawing one would be invention.
+      points.push(
+        Cesium.Cartesian3.fromRadians(at.longitude, at.latitude, from.alt)
+      );
+    }
+    return points;
+  }
+
+  // No agreed destination — fall back to projecting the current track, so a
+  // flight whose route the databases dispute still shows where it is headed.
   const points = [];
   for (let i = 0; i <= COURSE_STEPS; i++) {
     const distance = f.speedMs * COURSE_SECONDS * (i / COURSE_STEPS);
@@ -327,6 +357,7 @@ els.scrim?.addEventListener('click', () => setPanelOpen(false));
 
 els.closeDetail.addEventListener('click', () => {
   activeIcao = null;
+  activeRoute = null;
   routeRequest?.abort();
   clearAirports();
   els.dRoute.hidden = true;
@@ -643,22 +674,6 @@ function showAirports(result) {
     })
   );
 
-  // Selecting a flight parks the camera ~70km from the aircraft, where two
-  // airports a continent apart are both off screen. Marking them is only
-  // worth anything if the frame actually holds them, so widen to cover the
-  // whole leg.
-  const aircraft = airPosition(activeIcao);
-  const sphere = Cesium.BoundingSphere.fromPoints(
-    [from, to, aircraft].filter(Boolean)
-  );
-  viewer.camera.flyToBoundingSphere(sphere, {
-    offset: new Cesium.HeadingPitchRange(
-      0,
-      Cesium.Math.toRadians(-62),
-      sphere.radius * 3.9
-    ),
-    duration: 1.6,
-  });
 }
 
 function showRoute(callsign, result) {
@@ -691,6 +706,7 @@ function showRoute(callsign, result) {
         ? 'Rota doğrulanamadı — kaynaklar çelişiyor'
         : 'Rota bilgisi yok';
   }
+  activeRoute = result;
   el.hidden = false;
   showAirports(result);
 }
@@ -700,6 +716,7 @@ function loadRoute(callsign) {
   const controller = new AbortController();
   routeRequest = controller;
 
+  activeRoute = null;
   els.dRoute.hidden = true;
   fetchRoute(callsign, { signal: controller.signal })
     .then((result) => showRoute(callsign, result))

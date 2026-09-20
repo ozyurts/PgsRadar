@@ -57,10 +57,17 @@ belirir ve mevcut rotası boyunca ileriye kesikli bir projeksiyon çizilir.
 İzler diğer uçaklarda bilinçli olarak soluktur — otuz uçak havadayken hepsi
 parlak olsa harita spagettiye döner.
 
-> **Not:** İleri projeksiyon bir **uçuş planı değildir**. ADS-B yayını
-> kalkış/varış bilgisi taşımaz, dolayısıyla bu çizgi "uçak nereye gidecek"
-> değil, "mevcut rotası sürerse nereye varır" demektir. Süresi
-> `src/main.js` içindeki `COURSE_SECONDS` ile ayarlanır.
+Kesikli çizgi, kalkış/varış çifti doğrulanabildiyse **varış havalimanına**
+yönelir (büyük daire boyunca). Doğrulanamadığında — kaynaklar çeliştiğinde,
+ölçümde uçuşların kabaca üçte birinde — mevcut rotanın ileri projeksiyonuna
+düşer; aksi halde çizgi tamamen kaybolurdu.
+
+Çizgi uçağın anlık irtifasında sabit kalır: iniş profilini bu veri bilmiyor,
+çizmek uydurmak olurdu.
+
+> **Not:** Yön projeksiyonuna düşüldüğünde çizgi bir **uçuş planı değildir**;
+> "mevcut rotası sürerse nereye varır" demektir. Süresi `src/main.js`
+> içindeki `COURSE_SECONDS` ile ayarlanır.
 
 ### Uçak tipi
 
