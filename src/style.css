@@ -226,6 +226,12 @@ body {
   background: var(--accent);
   flex-shrink: 0;
 }
+/* Parked and taxiing aircraft are listed after the flights and read as
+   background: same row, less ink. */
+.flight-row.ground { opacity: 0.62; }
+.flight-row.ground:hover,
+.flight-row.ground.active { opacity: 1; }
+.flight-row.ground .dot { background: #6b7684; }
 .flight-row .info { flex: 1; min-width: 0; }
 .flight-row .cs {
   font-family: var(--font-mono);
@@ -361,12 +367,21 @@ body {
 
 /* Bottom centre is the one strip free of the footer (left), the Cesium
    credits (right) and the flight panel — on phones as well as desktop. */
-.basemap-switch {
+/* The map's own controls — basemap and layers — share one row along the
+   bottom so neither has to claim a corner of the globe for itself. */
+.map-controls {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.basemap-switch,
+.layer-toggle {
   display: flex;
   gap: 2px;
   padding: 3px;
@@ -377,23 +392,50 @@ body {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
-.basemap-switch button {
+
+.basemap-switch button,
+.layer-toggle {
   appearance: none;
-  border: 0;
-  background: transparent;
   color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 500;
-  padding: 5px 13px;
-  border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.basemap-switch button:hover { color: var(--text-primary); }
+.basemap-switch button {
+  border: 0;
+  background: transparent;
+  padding: 5px 13px;
+  border-radius: 999px;
+}
+.basemap-switch button:hover,
+.layer-toggle:hover { color: var(--text-primary); }
 .basemap-switch button[aria-pressed='true'] {
   background: var(--accent);
   color: #fff;
+}
+
+/* The ground layer is secondary to the flights, so switching it on does not
+   earn the accent colour the basemap choice gets — it only stops looking
+   switched off. */
+.layer-toggle { padding: 8px 14px; }
+.layer-toggle::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+  align-self: center;
+}
+.layer-toggle[aria-pressed='true'] {
+  color: var(--text-primary);
+}
+.layer-toggle[aria-pressed='true']::before {
+  background: #6b7684;
+  opacity: 1;
 }
 
 .foot {
@@ -454,7 +496,7 @@ body[data-basemap='uydu'] .cesium-viewer .cesium-viewer-bottom {
   /* The sheet is translucent, so anything left underneath reads through it. */
   body.panel-open .foot,
   body.panel-open .cesium-viewer .cesium-viewer-bottom,
-  body.panel-open .basemap-switch {
+  body.panel-open .map-controls {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
@@ -463,9 +505,12 @@ body[data-basemap='uydu'] .cesium-viewer .cesium-viewer-bottom {
 
 @media (max-width: 680px) {
   /* The footer runs most of the width on a phone, so the switcher cannot sit
-     beside it — it moves above instead. */
-  .basemap-switch {
+     beside it — it moves above instead. And the two controls no longer fit on
+     one line at 360px, so they stack, layer switch on top. */
+  .map-controls {
     bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+    flex-direction: column-reverse;
+    gap: 6px;
   }
 }
 

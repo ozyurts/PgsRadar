@@ -145,9 +145,10 @@ viewer.scene.fog.enabled = false;
 // sheet rather than a sphere with things flying above it.
 viewer.scene.globe.depthTestAgainstTerrain = true;
 // 200km was the old floor, which put the camera so far out that 11km of
-// altitude was ~4% of the frame — height could never read. Letting the camera
-// in to 20km is what makes the altitude legs legible.
-viewer.scene.screenSpaceCameraController.minimumZoomDistance = 20000;
+// altitude was ~4% of the frame — height could never read. 20km made the
+// altitude legs legible; ground traffic then needed closer still, since at
+// 20km an entire apron of parked aircraft is a few dozen pixels wide.
+viewer.scene.screenSpaceCameraController.minimumZoomDistance = 1200;
 viewer.scene.screenSpaceCameraController.maximumZoomDistance = 25000000;
 
 viewer.camera.setView({
@@ -155,14 +156,14 @@ viewer.camera.setView({
 });
 
 // ---------- Aircraft icon ----------
-function buildPlaneIcon() {
+function buildPlaneIcon({ fill, outline } = { fill: '#ff6a13' }) {
   const size = 48;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   ctx.translate(size / 2, size / 2);
-  ctx.fillStyle = '#ff6a13';
+  ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.moveTo(0, -16);
   ctx.lineTo(5, -4);
@@ -182,15 +183,46 @@ function buildPlaneIcon() {
   ctx.lineTo(-5, -4);
   ctx.closePath();
   ctx.fill();
+  if (outline) {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
   return canvas.toDataURL('image/png');
 }
-const PLANE_ICON = buildPlaneIcon();
+const PLANE_ICON = buildPlaneIcon({ fill: '#ff6a13' });
+// Ground traffic is a backdrop, not the subject, so it gives up the accent
+// colour. The pale outline is what keeps a grey shape legible over dark
+// satellite imagery as well as over the light canvas basemap.
+const PLANE_ICON_GROUND = buildPlaneIcon({
+  fill: '#6b7684',
+  outline: 'rgba(255, 255, 255, 0.85)',
+});
 
 // ---------- State ----------
-const entities = new Map(); // icao24 -> { plane, leg, shadow }
-const fleet = new Map();    // icao24 -> { flight, receivedAt }
+const entities = new Map(); // icao24 -> { kind, plane, parts }
+const fleet = new Map();    // icao24 -> { flight, receivedAt, history }
 let flights = [];
 let activeIcao = null;
+
+// ---------- Ground layer ----------
+// Aircraft on the apron and the taxiways are their own layer: at any moment a
+// good part of the fleet is parked at Sabiha Gokcen, and drawn like the
+// airborne ones they would bury the hub under a single orange blob. They are
+// small, grey, trail-less — and switchable, because most of the time the
+// question is "what is flying", not "what is parked".
+const GROUND_STORAGE_KEY = 'pgsradar.ground';
+let showGround = true;
+try {
+  showGround = localStorage.getItem(GROUND_STORAGE_KEY) !== '0';
+} catch {
+  // Private browsing refuses reads; fall back to showing them.
+}
+
+function visibleFlights() {
+  return showGround ? flights : flights.filter((f) => !f.onGround);
+}
 
 // ---------- Dead reckoning ----------
 // The feed refreshes every POLL_INTERVAL_MS. Snapping icons to each new fix
@@ -226,6 +258,13 @@ function project(icao24) {
   if (!rec) return undefined;
 
   const f = rec.flight;
+
+  // Dead reckoning assumes the aircraft keeps going the way it is pointed.
+  // That holds in the air and fails on the ground, where it follows taxiways
+  // and turns constantly: extrapolated, a taxiing aircraft walks onto the
+  // grass within a minute. The last reported fix is the honest answer.
+  if (f.onGround) return { lon: f.lon, lat: f.lat, alt: 0 };
+
   const dt = Math.min((Date.now() - rec.receivedAt) / 1000, MAX_COAST_S);
   const { lat, lon } = advance(f.lat, f.lon, f.heading, f.speedMs * dt);
 
@@ -252,7 +291,7 @@ const COURSE_MIN_SPEED_MS = 25;
 
 function trailPositions(icao24) {
   const rec = icao24 && fleet.get(icao24);
-  if (!rec) return undefined;
+  if (!rec || rec.flight.onGround) return undefined;
 
   const points = rec.history.map((h) =>
     Cesium.Cartesian3.fromDegrees(h.lon, h.lat, h.alt)
@@ -273,7 +312,7 @@ function coursePositions(icao24) {
   if (!rec) return undefined;
 
   const f = rec.flight;
-  if (f.speedMs < COURSE_MIN_SPEED_MS) return undefined;
+  if (f.onGround || f.speedMs < COURSE_MIN_SPEED_MS) return undefined;
 
   const from = project(icao24);
   if (!from) return undefined;
@@ -348,7 +387,24 @@ const els = {
   statusPill: document.getElementById('statusPill'),
   panel: document.getElementById('panel'),
   scrim: document.getElementById('scrim'),
+  groundToggle: document.getElementById('groundToggle'),
 };
+
+function setGroundVisible(visible) {
+  showGround = visible;
+  els.groundToggle?.setAttribute('aria-pressed', String(visible));
+  try {
+    localStorage.setItem(GROUND_STORAGE_KEY, visible ? '1' : '0');
+  } catch {
+    // Private browsing refuses writes; the choice just will not persist.
+  }
+  updateEntities();
+  renderList();
+  dropSelectionIfHidden();
+}
+
+els.groundToggle?.addEventListener('click', () => setGroundVisible(!showGround));
+els.groundToggle?.setAttribute('aria-pressed', String(showGround));
 
 // ---------- Flight list sheet (phones) ----------
 // On a narrow screen the list is a sheet rather than a fixed column. Desktop
@@ -363,7 +419,7 @@ els.statusPill?.addEventListener('click', () => {
 });
 els.scrim?.addEventListener('click', () => setPanelOpen(false));
 
-els.closeDetail.addEventListener('click', () => {
+function clearSelection() {
   activeIcao = null;
   activeRoute = null;
   routeRequest?.abort();
@@ -371,7 +427,16 @@ els.closeDetail.addEventListener('click', () => {
   els.dRoute.hidden = true;
   els.detail.classList.remove('visible');
   renderList();
-});
+}
+
+/** Switching the ground layer off can take the selected aircraft with it. */
+function dropSelectionIfHidden() {
+  if (activeIcao && !visibleFlights().some((f) => f.icao24 === activeIcao)) {
+    clearSelection();
+  }
+}
+
+els.closeDetail.addEventListener('click', clearSelection);
 
 function setStatus(state, text) {
   els.statusDot.className = 'status-dot' + (state ? ' ' + state : '');
@@ -384,7 +449,7 @@ function fmtTime(d = new Date()) {
 
 const ACCENT = Cesium.Color.fromCssColorString('#ff6a13');
 
-function createEntities(icao24) {
+function createAirEntities(icao24) {
   // Positions are callbacks rather than fixed values so every frame re-reads
   // the dead-reckoned estimate and the aircraft glides instead of stepping.
   const plane = viewer.entities.add({
@@ -442,7 +507,38 @@ function createEntities(icao24) {
     },
   });
 
-  return { plane, leg, shadow, trail };
+  return { kind: 'air', plane, parts: [plane, leg, trail, shadow] };
+}
+
+/**
+ * A parked or taxiing aircraft: the shape and its heading, nothing else. No
+ * altitude leg (there is no altitude), no shadow (it is its own shadow) and
+ * no trail — a stand keeps reporting the same fix, so a trail would just be a
+ * dot drawn over itself.
+ */
+function createGroundEntity(icao24) {
+  const plane = viewer.entities.add({
+    id: icao24,
+    position: new Cesium.CallbackProperty(() => groundPosition(icao24), false),
+    billboard: {
+      image: PLANE_ICON_GROUND,
+      width: 15,
+      height: 15,
+      rotation: 0,
+      alignedAxis: Cesium.Cartesian3.UNIT_Z,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      // Barely scaled with distance, unlike the airborne icons: their size
+      // sells height, and these have none. Zoomed out they shrink away so the
+      // hub reads as one mark rather than a clump.
+      scaleByDistance: new Cesium.NearFarScalar(2.0e4, 1.6, 2.0e6, 0.45),
+    },
+  });
+
+  return { kind: 'ground', plane, parts: [plane] };
+}
+
+function removeGroup(group) {
+  for (const part of group.parts) viewer.entities.remove(part);
 }
 
 // ---------- Selection layer ----------
@@ -478,6 +574,12 @@ const selectedHalo = viewer.entities.add({
     color: Cesium.Color.TRANSPARENT,
     outlineColor: ACCENT.withAlpha(0.8),
     outlineWidth: 2,
+    // A ring around an aircraft sitting at zero altitude is half-buried in
+    // the globe, which left the selected ground aircraft wearing an arc.
+    // Ignoring depth within 5000km covers everything the camera can be
+    // looking at, while an aircraft on the far side of the planet — always
+    // further than that — still gets hidden by it.
+    disableDepthTestDistance: 5.0e6,
     show: new Cesium.CallbackProperty(
       () => Boolean(activeIcao && fleet.has(activeIcao)),
       false
@@ -490,35 +592,47 @@ function updateEntities() {
 
   const now = Date.now();
 
-  flights.forEach((f) => {
+  visibleFlights().forEach((f) => {
     seen.add(f.icao24);
 
     const previous = fleet.get(f.icao24);
     const history = previous ? previous.history : [];
-    history.push({ lon: f.lon, lat: f.lat, alt: f.altitudeM, t: now });
-    while (
-      history.length > TRAIL_MAX_POINTS ||
-      (history.length > 1 && now - history[0].t > TRAIL_MAX_AGE_MS)
-    ) {
-      history.shift();
+    // A stand reports the same position every poll, so recording it would
+    // fill the trail with forty identical points and leave nothing of the
+    // flight that got there once it takes off again.
+    if (!f.onGround) {
+      history.push({ lon: f.lon, lat: f.lat, alt: f.altitudeM, t: now });
+      while (
+        history.length > TRAIL_MAX_POINTS ||
+        (history.length > 1 && now - history[0].t > TRAIL_MAX_AGE_MS)
+      ) {
+        history.shift();
+      }
     }
     fleet.set(f.icao24, { flight: f, receivedAt: now, history });
 
+    const kind = f.onGround ? 'ground' : 'air';
     let group = entities.get(f.icao24);
+    // A landing or a departure changes which layer the aircraft belongs to,
+    // and the two are built from different entities, so it is rebuilt rather
+    // than restyled.
+    if (group && group.kind !== kind) {
+      removeGroup(group);
+      entities.delete(f.icao24);
+      group = null;
+    }
     if (!group) {
-      group = createEntities(f.icao24);
+      group = kind === 'ground' ? createGroundEntity(f.icao24) : createAirEntities(f.icao24);
       entities.set(f.icao24, group);
     }
     group.plane.billboard.rotation = Cesium.Math.toRadians(-f.heading);
   });
 
-  // Remove aircraft that dropped out of the feed.
+  // Remove aircraft that dropped out of the feed — or out of a layer that has
+  // just been switched off.
   for (const [icao, group] of entities) {
     if (!seen.has(icao)) {
-      viewer.entities.remove(group.plane);
-      viewer.entities.remove(group.leg);
-      viewer.entities.remove(group.shadow);
-      viewer.entities.remove(group.trail);
+      removeGroup(group);
       entities.delete(icao);
       fleet.delete(icao);
     }
@@ -526,23 +640,33 @@ function updateEntities() {
 }
 
 function renderList() {
-  els.count.textContent = flights.length;
+  const rows = visibleFlights();
+  els.count.textContent = rows.length;
 
-  if (flights.length === 0) {
+  if (rows.length === 0) {
     els.list.replaceChildren(Object.assign(document.createElement('div'), {
       className: 'empty-state',
-      textContent: `Şu anda havada ${CALLSIGN_PREFIX} çağrı işaretli uçuş görünmüyor, ya da veri henüz gelmedi.`,
+      textContent: `Şu anda ${CALLSIGN_PREFIX} çağrı işaretli uçuş görünmüyor, ya da veri henüz gelmedi.`,
     }));
     return;
   }
 
   els.list.replaceChildren();
-  flights
+  rows
     .slice()
-    .sort((a, b) => a.callsign.localeCompare(b.callsign))
+    // Airborne first: the ones on the ground are context, and on a busy
+    // afternoon there are enough of them to push every flight off the screen.
+    .sort(
+      (a, b) =>
+        Number(a.onGround) - Number(b.onGround) ||
+        a.callsign.localeCompare(b.callsign)
+    )
     .forEach((f) => {
       const row = document.createElement('div');
-      row.className = 'flight-row' + (f.icao24 === activeIcao ? ' active' : '');
+      row.className =
+        'flight-row' +
+        (f.icao24 === activeIcao ? ' active' : '') +
+        (f.onGround ? ' ground' : '');
 
       // Built with textContent rather than innerHTML: callsign and country come
       // straight from a third-party feed and must not be parsed as markup.
@@ -562,7 +686,7 @@ function renderList() {
       const metrics = document.createElement('div');
       metrics.className = 'metrics';
       metrics.append(
-        'FL' + Math.round((f.altitudeM * 3.281) / 100),
+        f.onGround ? 'YERDE' : 'FL' + Math.round((f.altitudeM * 3.281) / 100),
         document.createElement('br'),
         Math.round(f.speedMs * 1.944) + ' kt'
       );
@@ -720,7 +844,9 @@ function selectFlight(icao24, flyTo) {
   // Registration and type both describe the airframe, so they share a line.
   els.dOrigin.textContent =
     [f.registration, f.model || f.type].filter(Boolean).join(' · ') || '—';
-  els.dAlt.textContent = Math.round(f.altitudeM * 3.281).toLocaleString('tr-TR') + ' ft';
+  els.dAlt.textContent = f.onGround
+    ? 'Yerde'
+    : Math.round(f.altitudeM * 3.281).toLocaleString('tr-TR') + ' ft';
   els.dSpeed.textContent = Math.round(f.speedMs * 1.944) + ' kt';
   els.dHeading.textContent = Math.round(f.heading) + '°';
   els.dPos.textContent = f.lat.toFixed(2) + ', ' + f.lon.toFixed(2);
@@ -736,8 +862,11 @@ function selectFlight(icao24, flyTo) {
     viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), {
       offset: new Cesium.HeadingPitchRange(
         Cesium.Math.toRadians(f.heading - 150),
-        Cesium.Math.toRadians(-22),
-        70000
+        // On the ground there is no height to show off, and the interesting
+        // thing is which stand it is on — so come in steeper and far closer
+        // than the 70km that frames an aircraft at cruise.
+        Cesium.Math.toRadians(f.onGround ? -50 : -22),
+        f.onGround ? 2500 : 70000
       ),
       duration: 1.4,
     });
@@ -760,10 +889,22 @@ async function poll() {
     flights = data;
     updateEntities();
     renderList();
-    if (activeIcao && flights.some((f) => f.icao24 === activeIcao)) {
+    if (activeIcao && visibleFlights().some((f) => f.icao24 === activeIcao)) {
       selectFlight(activeIcao, false);
+    } else {
+      dropSelectionIfHidden();
     }
-    setStatus('live', flights.length + ' uçuş · canlı');
+
+    const grounded = flights.filter((f) => f.onGround).length;
+    const airborne = flights.length - grounded;
+    // The counts are of everything the feed reported, not of what the layer
+    // switch happens to be showing: the pill is the state of the fleet.
+    setStatus(
+      'live',
+      grounded
+        ? `${airborne} havada · ${grounded} yerde`
+        : `${airborne} uçuş · canlı`
+    );
     els.updated.textContent = 'Son güncelleme: ' + fmtTime();
   } catch (err) {
     console.error('OpenSky fetch failed:', err);

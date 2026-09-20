@@ -11,6 +11,10 @@
 // adsb.lol and adsb.fi are community ADS-B aggregators, need no key, and
 // answer from fra1 in 50-80ms. Their API caps a query at 250 nautical miles
 // around a point, so the fleet's range is covered by overlapping circles.
+//
+// Aircraft on the ground are included and flagged with `onGround`; the client
+// draws them as its own layer. They are not filtered out here because the
+// filter cannot be made honest at this level — see normalise().
 
 const SOURCES = [
   { name: 'adsb.lol', base: 'https://api.adsb.lol/v2' },
@@ -88,15 +92,33 @@ function modelOf(ac) {
   return TYPE_NAMES[type] || tidyModel(ac.desc) || null;
 }
 
+// `track` is the direction of travel, and an aircraft that is not travelling
+// does not report one — parked and slow-taxiing aircraft send their heading
+// instead. Falling straight through to 0 would point every one of them north.
+function headingOf(ac) {
+  for (const value of [ac.track, ac.true_heading, ac.mag_heading]) {
+    if (typeof value === 'number') return value;
+  }
+  return 0;
+}
+
 function normalise(ac) {
   const callsign = (ac.flight || '').trim();
   if (!callsign) return null;
   if (ac.lat == null || ac.lon == null) return null;
 
-  // alt_baro is the string "ground" for aircraft that have not taken off.
-  const altFt = typeof ac.alt_geom === 'number' ? ac.alt_geom
+  // alt_baro is the string "ground" for aircraft on the surface. This has to
+  // be read before alt_geom, not after: some airframes keep sending a GPS
+  // altitude while parked, so preferring alt_geom used to let a stationary
+  // aircraft through as if it were airborne at 8 metres — which is how a few
+  // ground aircraft appeared on the map while the rest were filtered out.
+  const onGround = String(ac.alt_baro).toLowerCase() === 'ground';
+
+  const altFt = onGround ? 0
+    : typeof ac.alt_geom === 'number' ? ac.alt_geom
     : typeof ac.alt_baro === 'number' ? ac.alt_baro
     : null;
+  // An airborne aircraft with no altitude at all cannot be drawn honestly.
   if (altFt == null) return null;
 
   const rateFtMin = typeof ac.geom_rate === 'number' ? ac.geom_rate
@@ -111,12 +133,15 @@ function normalise(ac) {
     // extra: no second lookup, no second source to disagree with.
     type: String(ac.t ?? '').trim() || null,
     model: modelOf(ac),
+    onGround,
     lat: ac.lat,
     lon: ac.lon,
     altitudeM: altFt * FT_TO_M,
     speedMs: (typeof ac.gs === 'number' ? ac.gs : 0) * KT_TO_MS,
-    heading: typeof ac.track === 'number' ? ac.track : 0,
-    verticalRateMs: rateFtMin * FTMIN_TO_MS,
+    heading: headingOf(ac),
+    // A parked aircraft's baro_rate drifts with the pressure, not with the
+    // aircraft; carrying it through would make the map climb the apron.
+    verticalRateMs: onGround ? 0 : rateFtMin * FTMIN_TO_MS,
   };
 }
 

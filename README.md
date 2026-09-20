@@ -77,6 +77,35 @@ görünür. Yalnızca varış işaretlenir: kalkış uçağın arkasında kalır
 > "mevcut rotası sürerse nereye varır" demektir. Süresi `src/main.js`
 > içindeki `COURSE_SECONDS` ile ayarlanır.
 
+### Yerdeki uçaklar (ayrı katman)
+
+Apronda ve taksi yolundaki uçaklar kendi katmanlarında çizilir: küçük, gri,
+izsiz ve rota çizgisiz. Haritanın altındaki **Yerdekiler** düğmesiyle
+açılıp kapatılır; tercih `localStorage`'a yazılır.
+
+Neden ayrı: günün herhangi bir saatinde filonun önemli bir kısmı Sabiha
+Gökçen'de park halindedir. Havadakilerle aynı simgeyle çizilseler üst üste
+binip hub'ı tek bir turuncu lekeye çevirirlerdi. Listede de havadakilerden
+sonra gelirler ve soluk görünürler — uçuşları ekrandan itmesinler diye.
+
+Bu katman eklenene kadar yerdeki uçaklar **kısmen** görünüyordu, ki hiç
+görünmemelerinden kötüydü. Sebep `api/states.js` içindeki irtifa seçimiydi:
+önce `alt_geom` (GPS irtifası), sonra `alt_baro` okunuyordu. Yerdeki bir
+uçağın `alt_baro` alanı `"ground"` yazısıdır, ama bazı uçaklar park
+halindeyken de GPS irtifası yollamaya devam eder. Böylece bir kısmı elenip
+bir kısmı "8 metrede uçuyor" diye geçiyordu. Artık `"ground"` bayrağı
+**önce** okunuyor ve sonuç `onGround` olarak istemciye taşınıyor.
+
+Yerdeki uçaklara ölü hesap uygulanmaz. Ölü hesap "uçak burnunun gösterdiği
+yöne devam eder" varsayar; bu havada doğrudur, yerde değildir — taksi yolunda
+sürekli dönen bir uçak bir dakika içinde çimenliğe yürür. Onun yerine son
+bildirilen sabit kullanılır. Aynı sebeple yön alanı `track` yoksa
+`true_heading`/`mag_heading`'e düşer: duran bir uçak "gidiş yönü" bildirmez,
+o alan boş gelir ve 0'a düşmek hepsini kuzeye çevirirdi.
+
+Kamera alt zum sınırı bu katman için 20 km'den 1.2 km'ye indirildi; 20 km'den
+bakıldığında koca bir apron birkaç düzine piksel genişliğinde kalıyor.
+
 ### Uçak tipi
 
 Tip, toplayıcı yanıtında zaten geliyor; ek bir sorgu yok. Ama iki sağlayıcı
@@ -229,6 +258,10 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
   içindeki `CIRCLES` listesine merkez ekleyin.
 - **Yer kapsaması**: ADS-B kapsaması topluluk alıcılarına dayanır; alıcı
   yoğunluğunun düşük olduğu bölgelerde uçuşlar eksik görünebilir.
+- **Yerdeki uçaklar**: Yalnızca transponder'ı açık olanlar görünür. Kapıda
+  bekleyen bir uçak transponder'ını kapattığında listeden düşer; bu "uçak
+  orada değil" demek değildir. Ayrıca yerdeki konum apron ölçeğinde birkaç
+  on metre sapabilir, yani simge kesin park pozisyonunu göstermez.
 - **Sefer numarası**: Uçuşlar ICAO çağrı işaretiyle gösterilir (`PGT612`),
   yolcunun bildiği IATA sefer koduyla (`PC612`) değil. Bu bilinçli bir
   tercih, eksiklik değil:
