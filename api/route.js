@@ -65,12 +65,19 @@ function describe(port) {
   const name = shortenName(port?.name);
   const city = String(port?.municipality ?? '').trim() || null;
 
+  // adsbdb carries coordinates too, so plotting the pair on the globe costs
+  // no extra request.
+  const lat = Number(port?.latitude);
+  const lon = Number(port?.longitude);
+
   return {
     icao,
     iata: String(port?.iata_code ?? '').trim().toUpperCase() || null,
     name,
     city,
     country: String(port?.country_name ?? '').trim() || null,
+    lat: Number.isFinite(lat) ? lat : null,
+    lon: Number.isFinite(lon) ? lon : null,
   };
 }
 
