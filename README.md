@@ -108,7 +108,27 @@ Karo adresleme sırası `{z}/{y}/{x}`'tir (önce satır, sonra sütun), alışı
 
 Proje CARTO Positron ile başlamıştı; CARTO anahtarsız karolara "API KEY
 REQUIRED" filigranı basmaya başlayınca bırakıldı. Bir gün Esri de aynısını
-yaparsa `src/main.js` içindeki `ESRI_CANVAS` sabitini değiştirmek yeterli.
+yaparsa `src/main.js` içindeki `ESRI` sabitini değiştirmek yeterli.
+
+#### Zemin seçenekleri
+
+Alt ortadaki seçiciden üç zemin arasında geçiş yapılır; tercih tarayıcıda
+saklanır. `src/main.js` içindeki `BASEMAPS` tablosuna satır eklemek yeni bir
+seçenek için yeterlidir.
+
+| Seçenek | Katman | Not |
+| --- | --- | --- |
+| Sade | Light Gray Canvas | Varsayılan. Aynı karonun boyutu ~3 KB |
+| Rölyef | World Shaded Relief | Coğrafi ama sakin. ~14 KB. En fazla z13 |
+| Uydu | World Imagery | ~22 KB. z19'a kadar iner |
+
+Karo boyutu görsel yoğunluğun iyi bir göstergesi: rölyef sade zeminin ~4
+katı, uydu ~7 katı detay taşır. Denenip elenenler: NatGeo (~39 KB, ~12 kat)
+ve Physical/Terrain — uçak ikonları ve iz çizgileriyle yarışıyorlardı.
+
+Uydu zemini koyu olduğu için küre ve uzay rengi, küre üstündeki yazılar ve
+Cesium'un atıf şeridi `body[data-basemap]` üzerinden ayrıca ayarlanır; aksi
+halde açık tema grileri koyu zeminde kayboluyordu.
 
 ### Bölge kilidi
 

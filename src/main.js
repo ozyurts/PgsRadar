@@ -28,27 +28,111 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
   shouldAnimate: true,
 });
 
-// Esri's "Light Gray Canvas" — a clean, low-contrast basemap that needs no
-// API key. (CARTO's key-less tiles were used here first, but they now come
-// back stamped with an "API KEY REQUIRED" watermark.)
+// Esri basemaps, none of which need an API key. (CARTO's key-less tiles were
+// used here first, but they now come back stamped "API KEY REQUIRED".)
 //
-// Esri splits this style in two: the base has no place names, the reference
-// layer carries the labels. Note the {z}/{y}/{x} order — Esri addresses tiles
-// by row then column, not the usual x/y.
-const ESRI_CANVAS = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas';
+// Esri splits these into a base and a reference layer carrying the labels, so
+// each option lists both. Note the {z}/{y}/{x} order — Esri addresses tiles by
+// row then column, not the usual x/y. The maximum level differs per service:
+// shaded relief stops at 13, imagery goes far deeper.
+const ESRI = 'https://services.arcgisonline.com/ArcGIS/rest/services';
 const ESRI_CREDIT = 'Esri, HERE, Garmin, © OpenStreetMap contributors';
 
-for (const layer of ['World_Light_Gray_Base', 'World_Light_Gray_Reference']) {
-  viewer.imageryLayers.addImageryProvider(
-    new Cesium.UrlTemplateImageryProvider({
-      url: `${ESRI_CANVAS}/${layer}/MapServer/tile/{z}/{y}/{x}`,
-      credit: ESRI_CREDIT,
-      maximumLevel: 16,
-    })
-  );
+const BASEMAPS = {
+  sade: {
+    label: 'Sade',
+    layers: [
+      ['Canvas/World_Light_Gray_Base', 16],
+      ['Canvas/World_Light_Gray_Reference', 16],
+    ],
+    globe: '#eef0f3',
+    space: '#dfe3e8',
+  },
+  relief: {
+    label: 'Rölyef',
+    layers: [
+      ['World_Shaded_Relief', 13],
+      ['Canvas/World_Light_Gray_Reference', 16],
+    ],
+    globe: '#e7e3dc',
+    space: '#dfe3e8',
+  },
+  uydu: {
+    label: 'Uydu',
+    layers: [
+      ['World_Imagery', 19],
+      ['Reference/World_Boundaries_and_Places', 19],
+    ],
+    globe: '#0d1b2a',
+    space: '#070d14',
+  },
+};
+
+const BASEMAP_STORAGE_KEY = 'pgsradar.basemap';
+
+function applyBasemap(key) {
+  const map = BASEMAPS[key] ? key : 'sade';
+  const config = BASEMAPS[map];
+
+  viewer.imageryLayers.removeAll();
+  for (const [path, maximumLevel] of config.layers) {
+    viewer.imageryLayers.addImageryProvider(
+      new Cesium.UrlTemplateImageryProvider({
+        url: `${ESRI}/${path}/MapServer/tile/{z}/{y}/{x}`,
+        credit: ESRI_CREDIT,
+        maximumLevel,
+      })
+    );
+  }
+
+  // The globe colour shows through until tiles land, and behind the globe.
+  // Leaving it light under the satellite basemap makes the planet flash white
+  // on every pan.
+  viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString(config.globe);
+  viewer.scene.backgroundColor = Cesium.Color.fromCssColorString(config.space);
+  document.body.dataset.basemap = map;
+
+  try {
+    localStorage.setItem(BASEMAP_STORAGE_KEY, map);
+  } catch {
+    // Private browsing refuses writes; the choice just will not persist.
+  }
 }
 
-viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#eef0f3');
+let storedBasemap = null;
+try {
+  storedBasemap = localStorage.getItem(BASEMAP_STORAGE_KEY);
+} catch {}
+
+function buildBasemapSwitch() {
+  const host = document.getElementById('basemapSwitch');
+  if (!host) return;
+
+  const buttons = Object.entries(BASEMAPS).map(([key, config]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = config.label;
+    button.addEventListener('click', () => {
+      applyBasemap(key);
+      sync();
+    });
+    host.append(button);
+    return [key, button];
+  });
+
+  function sync() {
+    const active = document.body.dataset.basemap;
+    for (const [key, button] of buttons) {
+      button.setAttribute('aria-pressed', String(key === active));
+    }
+  }
+
+  sync();
+}
+
+applyBasemap(storedBasemap || 'sade');
+buildBasemapSwitch();
+
 viewer.scene.globe.enableLighting = false;
 viewer.scene.globe.showGroundAtmosphere = false;
 viewer.scene.skyAtmosphere.show = false;
@@ -60,7 +144,6 @@ viewer.scene.fog.enabled = false;
 // the planet draw straight through it and the scene reads as a flat sticker
 // sheet rather than a sphere with things flying above it.
 viewer.scene.globe.depthTestAgainstTerrain = true;
-viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#dfe3e8');
 // 200km was the old floor, which put the camera so far out that 11km of
 // altitude was ~4% of the frame — height could never read. Letting the camera
 // in to 20km is what makes the altitude legs legible.
@@ -296,7 +379,9 @@ function createEntities(icao24) {
     position: new Cesium.CallbackProperty(() => groundPosition(icao24), false),
     point: {
       pixelSize: 4,
-      color: Cesium.Color.fromCssColorString('#8a8f98').withAlpha(0.55),
+      // Accent rather than grey: this dot has to read against a pale canvas
+      // and against dark satellite imagery alike.
+      color: ACCENT.withAlpha(0.5),
       heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
     },
   });

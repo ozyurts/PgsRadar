@@ -359,6 +359,43 @@ body {
 }
 .close-btn:hover { background: rgba(0,0,0,0.1); }
 
+/* Bottom centre is the one strip free of the footer (left), the Cesium
+   credits (right) and the flight panel — on phones as well as desktop. */
+.basemap-switch {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.basemap-switch button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.basemap-switch button:hover { color: var(--text-primary); }
+.basemap-switch button[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+}
+
 .foot {
   position: absolute;
   left: 20px;
@@ -375,7 +412,32 @@ body {
 }
 .foot .dot-sep { margin: 0 8px; opacity: 0.5; }
 
+/* Text sitting directly on the globe, rather than inside a glass panel, has
+   to follow the basemap instead of the colour scheme: over satellite imagery
+   the light-theme greys disappear into the dark. */
+body[data-basemap='uydu'] .foot,
+body[data-basemap='uydu'] .foot a {
+  color: rgba(255, 255, 255, 0.78);
+}
+body[data-basemap='uydu'] .foot a {
+  border-bottom-color: rgba(255, 255, 255, 0.38);
+}
+/* Cesium renders its credits as dark text; invert rather than restyle, since
+   the markup is the widget's own. */
+body[data-basemap='uydu'] .cesium-viewer .cesium-viewer-bottom {
+  filter: invert(1);
+  opacity: 0.5;
+}
+
 @media (max-width: 680px) {
   .panel { display: none; }
   .brand-text p { display: none; }
+}
+
+@media (max-width: 680px) {
+  /* The footer runs most of the width on a phone, so the switcher cannot sit
+     beside it — it moves above instead. */
+  .basemap-switch {
+    bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+  }
 }
