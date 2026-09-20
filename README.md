@@ -80,8 +80,11 @@ görünür. Yalnızca varış işaretlenir: kalkış uçağın arkasında kalır
 ### Yerdeki uçaklar (ayrı katman)
 
 Apronda ve taksi yolundaki uçaklar kendi katmanlarında çizilir: küçük, gri,
-izsiz ve rota çizgisiz. Haritanın altındaki **Yerdekiler** düğmesiyle
-açılıp kapatılır; tercih `localStorage`'a yazılır.
+izsiz ve rota çizgisiz. **Aktif uçuşlar** panelinin başlığındaki
+**Yerdekiler** düğmesiyle açılıp kapatılır; tercih `localStorage`'a yazılır.
+Düğme harita kontrollerinde değil listede duruyor, çünkü aynı anda listeyi de
+süzüyor — harita zemini seçimiyle yan yana durması onu bir zemin seçeneği
+gibi gösteriyordu.
 
 Neden ayrı: günün herhangi bir saatinde filonun önemli bir kısmı Sabiha
 Gökçen'de park halindedir. Havadakilerle aynı simgeyle çizilseler üst üste

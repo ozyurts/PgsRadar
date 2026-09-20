@@ -26,6 +26,11 @@
         <h2>Aktif uçuşlar</h2>
         <span class="count" id="flightCount">0</span>
       </div>
+      <div class="panel-filter">
+        <button class="layer-toggle" id="groundToggle" type="button" aria-pressed="true">
+          Yerdekiler
+        </button>
+      </div>
       <div class="flight-list" id="flightList"></div>
     </aside>
 
@@ -42,12 +47,7 @@
       </div>
     </div>
 
-    <div class="map-controls">
-      <div class="basemap-switch" id="basemapSwitch" role="group" aria-label="Harita zemini"></div>
-      <button class="layer-toggle" id="groundToggle" type="button" aria-pressed="true">
-        Yerdekiler
-      </button>
-    </div>
+    <div class="basemap-switch" id="basemapSwitch" role="group" aria-label="Harita zemini"></div>
 
     <footer class="foot">
       <span id="updatedText">Son güncelleme: —</span>

@@ -181,11 +181,16 @@ body {
 }
 
 .panel-head {
-  padding: 16px 18px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 16px 18px 10px;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+}
+/* The ground layer filters the list as much as it does the map, so its switch
+   belongs to the list's header rather than to the basemap controls. */
+.panel-filter {
+  padding: 0 18px 12px;
+  border-bottom: 1px solid var(--border);
 }
 .panel-head h2 {
   margin: 0;
@@ -367,21 +372,12 @@ body {
 
 /* Bottom centre is the one strip free of the footer (left), the Cesium
    credits (right) and the flight panel — on phones as well as desktop. */
-/* The map's own controls — basemap and layers — share one row along the
-   bottom so neither has to claim a corner of the globe for itself. */
-.map-controls {
+.basemap-switch {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.basemap-switch,
-.layer-toggle {
   display: flex;
   gap: 2px;
   padding: 3px;
@@ -392,34 +388,44 @@ body {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
-
-.basemap-switch button,
-.layer-toggle {
+.basemap-switch button {
   appearance: none;
+  border: 0;
+  background: transparent;
   color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 500;
+  padding: 5px 13px;
+  border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.basemap-switch button {
-  border: 0;
-  background: transparent;
-  padding: 5px 13px;
-  border-radius: 999px;
-}
-.basemap-switch button:hover,
-.layer-toggle:hover { color: var(--text-primary); }
+.basemap-switch button:hover { color: var(--text-primary); }
 .basemap-switch button[aria-pressed='true'] {
   background: var(--accent);
   color: #fff;
 }
 
-/* The ground layer is secondary to the flights, so switching it on does not
-   earn the accent colour the basemap choice gets — it only stops looking
-   switched off. */
-.layer-toggle { padding: 8px 14px; }
+/* Inside the panel there is no glass to repeat, so the switch is a plain
+   chip. It does not take the accent colour when on: the ground layer is
+   background to the flights, and it only has to stop looking switched off. */
+.layer-toggle {
+  display: inline-flex;
+  align-items: center;
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.layer-toggle:hover { color: var(--text-primary); }
 .layer-toggle::before {
   content: '';
   width: 7px;
@@ -428,10 +434,10 @@ body {
   border-radius: 50%;
   background: currentColor;
   opacity: 0.35;
-  align-self: center;
 }
 .layer-toggle[aria-pressed='true'] {
   color: var(--text-primary);
+  background: rgba(127, 127, 127, 0.12);
 }
 .layer-toggle[aria-pressed='true']::before {
   background: #6b7684;
@@ -496,7 +502,7 @@ body[data-basemap='uydu'] .cesium-viewer .cesium-viewer-bottom {
   /* The sheet is translucent, so anything left underneath reads through it. */
   body.panel-open .foot,
   body.panel-open .cesium-viewer .cesium-viewer-bottom,
-  body.panel-open .map-controls {
+  body.panel-open .basemap-switch {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
@@ -505,12 +511,9 @@ body[data-basemap='uydu'] .cesium-viewer .cesium-viewer-bottom {
 
 @media (max-width: 680px) {
   /* The footer runs most of the width on a phone, so the switcher cannot sit
-     beside it — it moves above instead. And the two controls no longer fit on
-     one line at 360px, so they stack, layer switch on top. */
-  .map-controls {
+     beside it — it moves above instead. */
+  .basemap-switch {
     bottom: calc(46px + env(safe-area-inset-bottom, 0px));
-    flex-direction: column-reverse;
-    gap: 6px;
   }
 }
 
