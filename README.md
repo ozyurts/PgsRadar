@@ -106,7 +106,29 @@ bildirilen sabit kullanılır. Aynı sebeple yön alanı `track` yoksa
 `true_heading`/`mag_heading`'e düşer: duran bir uçak "gidiş yönü" bildirmez,
 o alan boş gelir ve 0'a düşmek hepsini kuzeye çevirirdi.
 
-Kamera alt zum sınırı bu katman için 20 km'den 1.2 km'ye indirildi; 20 km'den
+Her yerdeki uçağın **hangi havalimanında** olduğu hem listede hem kartta
+yazar. ADS-B uçağın nerede olduğunu söyler, neyin üstünde durduğunu asla;
+ücretsiz hiçbir servis de "bu nokta hangi havalimanı" sorusunu yanıtlamıyor.
+Bu yüzden cevap yerel bir tablodan çıkarılıyor (`lib/airports.js`): uçağın
+konumuna en yakın havalimanı, 8 km'den yakınsa. Tablo
+[OurAirports](https://ourairports.com/data/) verisinden türetildi (kamu malı),
+filonun uçtuğu bölgedeki ICAO kodlu büyük ve orta ölçekli havalimanlarıyla
+sınırlı: 1372 satır, ~98 KB.
+
+Sefer numarasından bulunamazdı: yerdeki bir uçak ya kalkış ya varış
+havalimanındadır ve hangisi olduğu dönüş süresince değişir. Tablo `api/`
+dışında duruyor çünkü `api/` altındaki her dosya bir uç noktaya dönüşüyor;
+tarayıcı paketine de konmadı — aynı anda yerde bir avuç uçak oluyor, üç soruya
+cevap vermek için tabloyu her ziyaretçiye göndermek yanlış takas olurdu.
+
+Yerdeki bir uçağa tıklandığında kamera 900 metreye, 55° eğimle iner ve harita
+zemini geçici olarak **uyduya** geçer. Sade zeminin 16'dan sonra detayı yok ve
+taksi yolu hiç çizmiyor — apronda duran bir uçağa yakından bakmak boş gri bir
+zeminde bir şekil görmek olurdu. Ödünç alınan zemin `localStorage`'a
+yazılmaz ve seçim kalkınca eski zemin geri gelir; zemini elle seçerseniz ödünç
+biter, tercihiniz kazanır.
+
+Kamera alt zum sınırı bu katman için 20 km'den 350 metreye indirildi; 20 km'den
 bakıldığında koca bir apron birkaç düzine piksel genişliğinde kalıyor.
 
 ### Uçak tipi
@@ -261,6 +283,10 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
   içindeki `CIRCLES` listesine merkez ekleyin.
 - **Yer kapsaması**: ADS-B kapsaması topluluk alıcılarına dayanır; alıcı
   yoğunluğunun düşük olduğu bölgelerde uçuşlar eksik görünebilir.
+- **Havalimanı eşleşmesi**: En yakın havalimanı kuralı, uçak gerçekten bir
+  havalimanındayken doğru çalışır; 8 km yarıçap içinde kalan başka bir
+  pist yoksa. Tabloda küçük havaalanları yok, dolayısıyla bir uçak çok
+  küçük bir piste inerse "Havalimanı belirlenemedi" yazar.
 - **Yerdeki uçaklar**: Yalnızca transponder'ı açık olanlar görünür. Kapıda
   bekleyen bir uçak transponder'ını kapattığında listeden düşer; bu "uçak
   orada değil" demek değildir. Ayrıca yerdeki konum apron ölçeğinde birkaç

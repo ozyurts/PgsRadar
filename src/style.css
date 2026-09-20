@@ -211,6 +211,18 @@ body {
   flex: 1;
 }
 
+/* Where the flights end and the parked aircraft begin. */
+.list-section {
+  padding: 14px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+.list-section:first-child { padding-top: 6px; }
+
 .flight-row {
   display: flex;
   align-items: center;

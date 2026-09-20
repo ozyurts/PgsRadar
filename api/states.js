@@ -12,9 +12,12 @@
 // answer from fra1 in 50-80ms. Their API caps a query at 250 nautical miles
 // around a point, so the fleet's range is covered by overlapping circles.
 //
-// Aircraft on the ground are included and flagged with `onGround`; the client
+// Aircraft on the ground are included and flagged with `onGround`, and named
+// with the airport they are standing on (see lib/airports.js). The client
 // draws them as its own layer. They are not filtered out here because the
 // filter cannot be made honest at this level — see normalise().
+
+import { nearestAirport } from '../lib/airports.js';
 
 const SOURCES = [
   { name: 'adsb.lol', base: 'https://api.adsb.lol/v2' },
@@ -134,6 +137,10 @@ function normalise(ac) {
     type: String(ac.t ?? '').trim() || null,
     model: modelOf(ac),
     onGround,
+    // Which field it is standing on. Only asked for ground aircraft: for an
+    // airborne one the nearest airport is a coincidence, not a fact about the
+    // flight.
+    airport: onGround ? nearestAirport(ac.lat, ac.lon) : null,
     lat: ac.lat,
     lon: ac.lon,
     altitudeM: altFt * FT_TO_M,

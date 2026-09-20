@@ -70,7 +70,7 @@ const BASEMAPS = {
 
 const BASEMAP_STORAGE_KEY = 'pgsradar.basemap';
 
-function applyBasemap(key) {
+function applyBasemap(key, { persist = true } = {}) {
   const map = BASEMAPS[key] ? key : 'sade';
   const config = BASEMAPS[map];
 
@@ -92,6 +92,7 @@ function applyBasemap(key) {
   viewer.scene.backgroundColor = Cesium.Color.fromCssColorString(config.space);
   document.body.dataset.basemap = map;
 
+  if (!persist) return;
   try {
     localStorage.setItem(BASEMAP_STORAGE_KEY, map);
   } catch {
@@ -99,10 +100,35 @@ function applyBasemap(key) {
   }
 }
 
+// ---------- Borrowed basemap ----------
+// Looking at an aircraft on an apron over the plain canvas basemap shows a
+// shape on an empty grey field: that basemap has no detail past zoom 16 and
+// draws no taxiways at all. So selecting a ground aircraft borrows the
+// satellite imagery for as long as it stays selected, and hands the chosen
+// basemap back afterwards. The borrowed one is never written to storage — it
+// is not a choice the visitor made.
+let borrowedFrom = null;
+
+function borrowSatellite() {
+  if (document.body.dataset.basemap === 'uydu') return;
+  borrowedFrom = document.body.dataset.basemap;
+  applyBasemap('uydu', { persist: false });
+  syncBasemapSwitch();
+}
+
+function returnBasemap() {
+  if (!borrowedFrom) return;
+  applyBasemap(borrowedFrom, { persist: false });
+  borrowedFrom = null;
+  syncBasemapSwitch();
+}
+
 let storedBasemap = null;
 try {
   storedBasemap = localStorage.getItem(BASEMAP_STORAGE_KEY);
 } catch {}
+
+let syncBasemapSwitch = () => {};
 
 function buildBasemapSwitch() {
   const host = document.getElementById('basemapSwitch');
@@ -113,21 +139,24 @@ function buildBasemapSwitch() {
     button.type = 'button';
     button.textContent = config.label;
     button.addEventListener('click', () => {
+      // Picking a basemap by hand ends the loan: the visitor's choice wins,
+      // and the old one must not come back when the selection is cleared.
+      borrowedFrom = null;
       applyBasemap(key);
-      sync();
+      syncBasemapSwitch();
     });
     host.append(button);
     return [key, button];
   });
 
-  function sync() {
+  syncBasemapSwitch = () => {
     const active = document.body.dataset.basemap;
     for (const [key, button] of buttons) {
       button.setAttribute('aria-pressed', String(key === active));
     }
-  }
+  };
 
-  sync();
+  syncBasemapSwitch();
 }
 
 applyBasemap(storedBasemap || 'sade');
@@ -147,8 +176,9 @@ viewer.scene.globe.depthTestAgainstTerrain = true;
 // 200km was the old floor, which put the camera so far out that 11km of
 // altitude was ~4% of the frame — height could never read. 20km made the
 // altitude legs legible; ground traffic then needed closer still, since at
-// 20km an entire apron of parked aircraft is a few dozen pixels wide.
-viewer.scene.screenSpaceCameraController.minimumZoomDistance = 1200;
+// 20km an entire apron of parked aircraft is a few dozen pixels wide, and
+// seeing which stand one is on means getting down among the taxiways.
+viewer.scene.screenSpaceCameraController.minimumZoomDistance = 350;
 viewer.scene.screenSpaceCameraController.maximumZoomDistance = 25000000;
 
 viewer.camera.setView({
@@ -420,6 +450,7 @@ els.statusPill?.addEventListener('click', () => {
 els.scrim?.addEventListener('click', () => setPanelOpen(false));
 
 function clearSelection() {
+  returnBasemap();
   activeIcao = null;
   activeRoute = null;
   routeRequest?.abort();
@@ -652,6 +683,7 @@ function renderList() {
   }
 
   els.list.replaceChildren();
+  let groundHeaderDone = false;
   rows
     .slice()
     // Airborne first: the ones on the ground are context, and on a busy
@@ -662,6 +694,17 @@ function renderList() {
         a.callsign.localeCompare(b.callsign)
     )
     .forEach((f) => {
+      // The two groups answer different questions, so the list says where one
+      // ends and the other begins rather than letting the flights fade into
+      // the parked aircraft.
+      if (f.onGround && !groundHeaderDone) {
+        groundHeaderDone = true;
+        const header = document.createElement('div');
+        header.className = 'list-section';
+        header.textContent = 'Yerde';
+        els.list.appendChild(header);
+      }
+
       const row = document.createElement('div');
       row.className =
         'flight-row' +
@@ -680,7 +723,14 @@ function renderList() {
       cs.textContent = f.callsign;
       const origin = document.createElement('div');
       origin.className = 'origin';
-      origin.textContent = f.registration || '';
+      // For a parked aircraft the airport is the whole point of the row; the
+      // registration alone says nothing about where it is.
+      origin.textContent = f.onGround
+        ? [f.registration, f.airport ? airportLabel(f.airport) : null]
+            .filter(Boolean)
+            .join(' · ')
+        : f.registration || '';
+      if (f.onGround && f.airport) origin.title = portTitle(f.airport);
       info.append(cs, origin);
 
       const metrics = document.createElement('div');
@@ -706,6 +756,15 @@ function renderList() {
 // that is in flight lets a late answer for a deselected aircraft be dropped
 // rather than written into the card of whatever is selected by then.
 let routeRequest = null;
+
+/**
+ * The airport a grounded aircraft is standing on, as one line.
+ */
+function airportLabel(airport) {
+  if (!airport) return 'Havalimanı belirlenemedi';
+  const code = airport.iata || airport.icao;
+  return `${portLabel(airport)} (${code})`;
+}
 
 /**
  * Label an airport the way people actually refer to it. Some names already
@@ -815,6 +874,41 @@ function showRoute(callsign, result) {
   showDestination(result);
 }
 
+/**
+ * A grounded aircraft has no route to show — it is between two of them, and
+ * which one the callsign names changes through the turnaround. Where it is
+ * standing is the fact we have, so the card shows that instead.
+ */
+function showGroundAirport(f) {
+  routeRequest?.abort();
+  activeRoute = null;
+  clearDestination();
+
+  const el = els.dRoute;
+  el.replaceChildren();
+
+  if (f.airport) {
+    el.className = 'route';
+
+    const ports = document.createElement('span');
+    ports.className = 'ports';
+    ports.textContent = portLabel(f.airport);
+    ports.title = portTitle(f.airport);
+
+    const codes = document.createElement('span');
+    codes.className = 'codes';
+    codes.textContent = [f.airport.icao, f.airport.iata].filter(Boolean).join(' · ');
+
+    el.append(ports, codes);
+  } else {
+    // Between airports, or at a field too small to be in the table.
+    el.className = 'route muted';
+    el.textContent = 'Havalimanı belirlenemedi';
+  }
+
+  el.hidden = false;
+}
+
 function loadRoute(callsign) {
   routeRequest?.abort();
   const controller = new AbortController();
@@ -836,9 +930,16 @@ function selectFlight(icao24, flyTo) {
   activeIcao = icao24;
   renderList();
 
-  // Only on a genuine change of selection: each poll re-runs selectFlight to
-  // refresh the numbers, and refetching the route every 30s would be waste.
-  if (changed) loadRoute(f.callsign);
+  if (f.onGround) {
+    // No network call behind this one, so it can be re-read every poll: a
+    // taxiing aircraft does cross between airports' thresholds.
+    showGroundAirport(f);
+  } else if (changed) {
+    // Only on a genuine change of selection: each poll re-runs selectFlight to
+    // refresh the numbers, and refetching the route every 30s would be waste.
+    loadRoute(f.callsign);
+    returnBasemap();
+  }
 
   els.dCallsign.textContent = f.callsign;
   // Registration and type both describe the airframe, so they share a line.
@@ -852,7 +953,23 @@ function selectFlight(icao24, flyTo) {
   els.dPos.textContent = f.lat.toFixed(2) + ', ' + f.lon.toFixed(2);
   els.detail.classList.add('visible');
 
-  if (flyTo) {
+  if (flyTo && f.onGround) {
+    // Close enough to read the stand, steep enough to see the layout, over
+    // imagery that actually draws the apron.
+    borrowSatellite();
+    const p = project(icao24) || { lon: f.lon, lat: f.lat, alt: 0 };
+    viewer.camera.flyToBoundingSphere(
+      new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0), 1),
+      {
+        offset: new Cesium.HeadingPitchRange(
+          Cesium.Math.toRadians(f.heading - 150),
+          Cesium.Math.toRadians(-55),
+          900
+        ),
+        duration: 1.6,
+      }
+    );
+  } else if (flyTo) {
     // Approach from the side rather than straight down: a top-down camera
     // projects the altitude leg to a single point, so height reads as zero.
     // flyToBoundingSphere frames the aircraft itself, so the range below is
@@ -862,11 +979,8 @@ function selectFlight(icao24, flyTo) {
     viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), {
       offset: new Cesium.HeadingPitchRange(
         Cesium.Math.toRadians(f.heading - 150),
-        // On the ground there is no height to show off, and the interesting
-        // thing is which stand it is on — so come in steeper and far closer
-        // than the 70km that frames an aircraft at cruise.
-        Cesium.Math.toRadians(f.onGround ? -50 : -22),
-        f.onGround ? 2500 : 70000
+        Cesium.Math.toRadians(-22),
+        70000
       ),
       duration: 1.4,
     });
