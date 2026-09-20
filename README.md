@@ -62,8 +62,11 @@ yönelir (büyük daire boyunca). Doğrulanamadığında — kaynaklar çelişti
 ölçümde uçuşların kabaca üçte birinde — mevcut rotanın ileri projeksiyonuna
 düşer; aksi halde çizgi tamamen kaybolurdu.
 
-Çizgi uçağın anlık irtifasında sabit kalır: iniş profilini bu veri bilmiyor,
-çizmek uydurmak olurdu.
+Çizginin irtifası uçağın ölçülen yüksekliğinden varışta sıfıra iner, böylece
+havalimanı işaretinin üstünde asılı kalmaz. İki uç da bilinir (irtifa
+ölçülmüştür, havalimanı yerdedir) ve aradaki yatay yol zaten bir yaklaşım
+olduğu için yüksekliği de aynı şekilde yaklaştırmak yeni bir iddia katmaz.
+Bu mesafelerde eğim varışa yakın yer dışında görünmez.
 
 Çizginin ucundaki varış havalimanı, IATA koduyla haritada işaretlenir. Yakın
 zumda kadrajın dışındadır — uzaklaşınca ya da çizgi boyunca kaydırınca

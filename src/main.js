@@ -291,11 +291,19 @@ function coursePositions(icao24) {
 
     const points = [];
     for (let i = 0; i <= COURSE_STEPS; i++) {
-      const at = geodesic.interpolateUsingFraction(i / COURSE_STEPS);
-      // Held at the present altitude: the descent profile is not something
-      // this data knows, so drawing one would be invention.
+      const fraction = i / COURSE_STEPS;
+      const at = geodesic.interpolateUsingFraction(fraction);
+      // Eased down to the ground so the line meets the airport marker instead
+      // of floating over it. Both ends are known — the aircraft's altitude is
+      // measured, the airport is at ground — and the path between them was
+      // already an approximation, so interpolating height adds no new claim.
+      // At these distances the slope is invisible except near the airport.
       points.push(
-        Cesium.Cartesian3.fromRadians(at.longitude, at.latitude, from.alt)
+        Cesium.Cartesian3.fromRadians(
+          at.longitude,
+          at.latitude,
+          from.alt * (1 - fraction)
+        )
       );
     }
     return points;
