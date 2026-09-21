@@ -246,12 +246,18 @@ let activeIcao = null;
 // flights off the screen, and the flights buried the single taxiing one. So
 // the list shows one group at a time, and the map follows it — what is listed
 // is what is drawn, with no third state where the two disagree.
-const LIST_MODE_STORAGE_KEY = 'pgsradar.list';
+//
+// The mode is deliberately not remembered between visits, unlike the basemap.
+// The basemap is a taste and stays yours; this is a lens you reach for and put
+// down — having looked at a stand once should not mean the site opens on the
+// apron a day later, with the flights missing and no obvious reason why.
+// Every visit starts on the flights.
 let listMode = 'air';
 try {
-  if (localStorage.getItem(LIST_MODE_STORAGE_KEY) === 'ground') listMode = 'ground';
+  // Left behind by the version that did remember it.
+  localStorage.removeItem('pgsradar.list');
 } catch {
-  // Private browsing refuses reads; start on the flights.
+  // Private browsing refuses writes; the stale key is harmless either way.
 }
 
 function visibleFlights() {
@@ -437,11 +443,6 @@ function setListMode(mode) {
   if (mode !== 'air' && mode !== 'ground') return;
   listMode = mode;
   syncModeSwitch();
-  try {
-    localStorage.setItem(LIST_MODE_STORAGE_KEY, mode);
-  } catch {
-    // Private browsing refuses writes; the choice just will not persist.
-  }
   updateEntities();
   renderList();
   dropSelectionIfHidden();

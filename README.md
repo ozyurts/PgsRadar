@@ -84,8 +84,11 @@ ve rota çizgisiz, ama havadakilerle aynı boyutta. Başta daha küçüktüler �
 aynı haritayı uçuşlarla paylaşırken onların önüne geçmemeleri gerekiyordu;
 aynı anda tek grup gösterilmeye başlayınca geri çekilecek bir şey kalmadı ve
 boyut farkı yalnızca "bunlar daha önemsiz" gibi okunuyordu. **Aktif uçuşlar** panelinin başlığındaki
-**Havadakiler / Yerdekiler** anahtarı hangisinin gösterileceğini seçer;
-tercih `localStorage`'a yazılır.
+**Havadakiler / Yerdekiler** anahtarı hangisinin gösterileceğini seçer.
+Zemin tercihinin aksine bu seçim hatırlanmaz: her ziyaret havadakilerle
+başlar. Zemin bir beğenidir ve sizin kalır; bu ise eline alıp bıraktığın bir
+mercek — bir kez apronu incelemiş olmak, ertesi gün sitenin uçuşlar olmadan
+açılması anlamına gelmemeli.
 
 İki liste aynı anda gösterilmiyor çünkü iki ayrı soruya cevap veriyorlar ve
 karışınca ikisi de kayboluyor: günün herhangi bir saatinde filonun önemli bir
