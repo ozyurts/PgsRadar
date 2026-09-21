@@ -65,14 +65,23 @@ kullanılabilir değil:
 sunucu `https://api.airplanes.live`, canlı sorgu uç noktası
 `/v2/point/{lat}/{lon}/{radius}`, yarıçap en fazla 250 nm — yani yukarıda
 denenen adres **doğru adres**. Belgede `security`, `securitySchemes`, API
-anahtarı veya token diye bir şey yok; belgelenen API açık. Buna rağmen canlı
-sunucu 403 döndürüyor, yani belge ile çalışan sistem birbirini tutmuyor:
-engel ya IP/ASN tabanlı (bulut sağlayıcıları) ya da belgeden yeni. Kullanım
-şartları sayfası da istemcide çizildiği için sunucu tarafından okunamıyor.
+anahtarı veya token diye bir şey yok; belgelenen API açık görünüyor.
 
-Sonuç: anahtarsız üçüncü kaynak yok. airplanes.live e-postayla başvuruya açık
-ama bu, kaynağı kişisel bir onaya bağlar ve "anahtarsız kal" kuralından sapar;
-eklenmeden önce sorulmalı.
+**Sonra doğrudan soruldu ve cevaplandı** (21 Eylül 2026). İşletmecinin cevabı:
+API artık **yalnızca katkıcılara** açık. Erişim otomatik veriliyor ama
+**besleyicinin IP adresine** bağlı: bir alıcı kurarsan aynı IP'den API'ye
+erişebiliyorsun. Gerekçe olarak barındırma maliyetinin iki yılda ~%300 artması
+ve haftada 2 milyarı aşan istek hacmi gösteriliyor. Uygulama/web sitesi
+işletenler için ayrıca aylık sponsorluk isteniyor ($25 / $50).
+
+Bu proje için bu kapı **yapısal olarak kapalı**, sponsorluktan bağımsız
+olarak: istekler Vercel'in `fra1` bölgesinden çıkıyor, ev alıcısının IP'sinden
+değil. Serverless fonksiyonların sabit çıkış IP'si de yok. IP eşleşmesine
+dayanan bir erişim modeli bu mimariyle uyuşmuyor; token/başlık tabanlı bir
+erişim verilmediği sürece alıcı kurmak da sorunu çözmez.
+
+Sonuç: anahtarsız üçüncü kaynak yok, ve airplanes.live ücretli/katkı koşuluyla
+bile bu mimariye uymuyor.
 
 Aynı ölçümde hız limiti de yeniden doğrulandı: `api.adsb.lol`'a aralıksız 6
 sorgu → **2'si 429**. Yani tek kaynak 12 dairenin tamamını taşıyamaz; bir
