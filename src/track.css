@@ -1,0 +1,438 @@
+/* The tracker page. Same palette and glass as the globe (tokens.css), but a
+   document layout rather than a full-bleed canvas: this page is read, not
+   flown around in, and it has to work on a phone held one-handed at a gate. */
+
+@import './tokens.css';
+
+* { box-sizing: border-box; }
+
+html { height: 100%; }
+
+body.track {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--accent-soft), transparent 70%),
+    var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 18px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 100vh;
+}
+
+/* ---------- Header ---------- */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.brand b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #ffb066);
+  flex-shrink: 0;
+}
+
+.ghost-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.ghost-link:hover { color: var(--text-primary); }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--surface);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+/* ---------- Entry ---------- */
+/* Paired with the footer's own `margin-top: auto`, this splits the leftover
+   height above and below the card: on a desktop window the form sits in the
+   middle of the screen instead of clinging to the header. */
+.entry { margin-top: auto; }
+
+.entry h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  margin: 0 0 18px;
+  color: var(--text-secondary);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+#lookupForm {
+  display: flex;
+  gap: 10px;
+}
+
+#flightInput {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  /* 17px is the smallest size iOS Safari will not zoom into on focus. */
+  font-size: 19px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  color: var(--text-primary);
+}
+#flightInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+button, .btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  padding: 13px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  white-space: nowrap;
+}
+button:hover, .btn:hover { border-color: var(--text-secondary); }
+
+#lookupForm button,
+button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+#lookupForm button:hover,
+button.primary:hover { filter: brightness(1.06); border-color: transparent; }
+
+button.quiet {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.error {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  color: #ff453a;
+}
+
+.hint {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.hint code, code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+/* ---------- Suggestions ---------- */
+.suggest {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.suggest h2 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.chip strong {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.chip span {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* ---------- Tracker ---------- */
+.tracker-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.callsign {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.tracker .sub {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--surface-solid);
+}
+.badge.live {
+  color: var(--accent);
+  border-color: transparent;
+  background: var(--accent-soft);
+}
+.badge.done {
+  color: #fff;
+  border-color: transparent;
+  background: var(--good);
+}
+.badge.warn {
+  color: #fff;
+  border-color: transparent;
+  background: #d08316;
+}
+
+.note {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+}
+
+.banner {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.banner p { margin: 0 0 8px; }
+.banner p:last-child { margin-bottom: 0; }
+.banner p:first-child { font-weight: 600; font-size: 15.5px; }
+.banner.done {
+  background: rgba(48, 176, 110, 0.14);
+}
+.banner.warn {
+  background: rgba(208, 131, 22, 0.14);
+}
+
+/* ---------- Route ---------- */
+.route {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.route-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.end {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.end.to { text-align: right; align-items: flex-end; }
+.end strong {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 650;
+}
+.end span {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  /* Long airport names must not push the two ends into each other. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.bar {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #ffb066);
+  transition: width 0.6s ease;
+}
+
+.route-meta, .route-unknown {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* ---------- Metrics ---------- */
+.grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.grid span {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.grid strong {
+  font-family: var(--font-mono);
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- Live line ---------- */
+/* Not `.live`: the status dot carries `.live` as its state class, and a
+   container by the same name styled the dot as well — an 18px margin on a 7px
+   dot, which pushed it off the baseline. */
+.live-line {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c7c7cc;
+  flex-shrink: 0;
+}
+.status-dot.live {
+  background: var(--good);
+  box-shadow: 0 0 0 4px rgba(48, 176, 110, 0.18);
+  animation: pulse 2s infinite;
+}
+.status-dot.done { background: var(--good); }
+.status-dot.warn { background: #d08316; }
+.status-dot.error { background: #ff453a; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ---------- Actions ---------- */
+.actions {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notify-state {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.notify-state.on { color: var(--good); }
+
+/* ---------- Footer ---------- */
+.foot {
+  margin-top: auto;
+  padding-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.foot a { color: inherit; }
+
+@media (max-width: 460px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  .callsign { font-size: 26px; }
+  .actions button, .actions .btn { flex: 1 1 calc(50% - 4px); }
+}

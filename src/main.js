@@ -2,6 +2,8 @@ import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './style.css';
 import { fetchFleet, fetchRoute } from './flights.js';
+import { portCode, portLabel, portTitle, airportLabel } from './ports.js';
+import { parseFlightNumber } from './callsign.js';
 
 // No Cesium ion account required: we skip ion imagery/terrain entirely
 // and use a free, token-less basemap + a flat ellipsoid terrain model.
@@ -858,49 +860,6 @@ function rowSubtitle(f) {
   return [f.registration, pair].filter(Boolean).join(' · ');
 }
 
-/** IATA where there is one — it is the code on the boarding pass. */
-function portCode(port) {
-  return port?.iata || port?.icao || '?';
-}
-
-/**
- * The airport a grounded aircraft is standing on, as one line.
- */
-function airportLabel(airport) {
-  if (!airport) return 'Havalimanı belirlenemedi';
-  const code = airport.iata || airport.icao;
-  return `${portLabel(airport)} (${code})`;
-}
-
-/**
- * Label an airport the way people actually refer to it. Some names already
- * carry the city ("Istanbul Sabiha Gökçen"); others do not ("Manas"), and on
- * its own that is unrecognisable — it is the airport in Bishkek.
- */
-function portLabel(port) {
-  const name = port?.name;
-  const city = port?.city;
-  if (!name) return city || port?.icao || '—';
-  if (!city) return name;
-
-  // "Pendik, Istanbul" — the trailing part is the city people would name.
-  const parts = city.split(',').map((p) => p.trim()).filter(Boolean);
-  const label = parts[parts.length - 1];
-  if (!label) return name;
-
-  const mentioned = parts.some((part) =>
-    name.toLocaleLowerCase('tr').includes(part.toLocaleLowerCase('tr'))
-  );
-  return mentioned ? name : `${label} ${name}`;
-}
-
-/** The long form, for a tooltip: everything the shortened label dropped. */
-function portTitle(port) {
-  return [port?.name, port?.city, port?.country]
-    .filter((part, i, all) => part && all.indexOf(part) === i)
-    .join(', ') || port?.icao || '—';
-}
-
 // ---------- Destination marker ----------
 // Only the destination is marked, and only for the selected flight. The
 // origin is behind the aircraft and adds nothing to "where is this going";
@@ -1113,6 +1072,28 @@ handler.setInputAction((movement) => {
   }
 }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
+// ---------- Deep link from the tracker ----------
+// takip.html links here with ?ucus=<callsign> so "look at it on the globe"
+// lands on that flight rather than on the fleet. The selection waits for the
+// aircraft to appear in the feed: the link may be opened before the first
+// poll answers, and it may be opened while the aircraft is still on a stand.
+let pendingCallsign = parseFlightNumber(
+  new URLSearchParams(location.search).get('ucus')
+)?.callsign ?? null;
+
+function applyDeepLink() {
+  if (!pendingCallsign) return;
+
+  const f = flights.find((x) => x.callsign.toUpperCase() === pendingCallsign);
+  if (!f) return;
+  pendingCallsign = null;
+
+  // A parked aircraft lives in a layer no visit starts on, so selecting it
+  // without switching would highlight a row nobody can see.
+  setListMode(f.onGround ? 'ground' : 'air');
+  selectFlight(f.icao24, true);
+}
+
 // ---------- Polling ----------
 async function poll() {
   try {
@@ -1120,6 +1101,7 @@ async function poll() {
     flights = data;
     updateEntities();
     renderList();
+    applyDeepLink();
     if (activeIcao && visibleFlights().some((f) => f.icao24 === activeIcao)) {
       selectFlight(activeIcao, false);
     } else {

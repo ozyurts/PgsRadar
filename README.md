@@ -1,7 +1,8 @@
 # PGS Radar
 
 Pegasus Havayolları filosunun canlı ADS-B verisiyle konum takibini 3D bir küre
-üzerinde gösteren, bağımsız bir web uygulaması.
+üzerinde gösteren, bağımsız bir web uygulaması. İki sayfası var: küre (`/`) ve
+tek bir uçuşu iniş anına kadar izleyen **uçuş takibi** (`/takip`).
 Vite + CesiumJS ile yazıldı, Apple'ın ürün sayfalarındaki sade/cam-efektli
 estetikten ilham alıyor.
 
@@ -15,6 +16,17 @@ estetikten ilham alıyor.
 
 Üçü de kod kadar bakımlıdır; bir davranışı veya gerekçeyi değiştiren her
 değişiklik ilgili dosyayı aynı commit içinde günceller.
+
+## İki sayfa
+
+| Adres | Ne yapar | Ağırlık |
+| --- | --- | --- |
+| `/` | Tüm filo, 3B küre üzerinde | Cesium dahil |
+| `/takip` | Sefer numarasıyla **tek uçuş**, iniş bildirimine kadar | ~24 KB (Cesium yok) |
+
+İkisi de aynı `/api/states` yanıtını tüketir, yani aynı edge cache'ini paylaşır:
+takip sayfasının ziyaretçisi üst kaynağa ek yük bindirmez. Ayrıntı için
+[Uçuş takibi](#uçuş-takibi-takip) bölümüne bakın.
 
 ## Nasıl çalışıyor
 
@@ -306,6 +318,93 @@ farklı `CACHE_SECONDS` penceresi sayısıyla** orantılıdır. 60 saniyelik cac
 hiç istek gitmez. Trafik artarsa `api/states.js` içindeki `CACHE_SECONDS`
 değerini büyütün.
 
+## Uçuş takibi (`/takip`)
+
+Küre "Pegasus şu anda ne uçuruyor" sorusuna cevap verir. Takip sayfası başka
+bir soruya cevap verir: **"benim uçuşum nerede ve indi mi?"** Bu yüzden kürenin
+filtrelenmiş hâli değil; ayrı bir giriş sayfası, tek bir kart ve bir bitiş.
+
+Bağlantı paylaşılabilir: `https://pgsradar.vercel.app/takip?ucus=PGT612`
+adresini açan herkes aynı uçuşu görür. Sayfa takip başlayınca URL'yi kendisi
+çağrı işaretine göre yazar, yani adres çubuğundaki şey her zaman paylaşılabilir
+olandır.
+
+### Sefer numarası → çağrı işareti
+
+Kutuya `PC612`, `612` ya da çağrı işaretinin kendisi (`PGT480Q`) yazılabilir.
+Dönüşüm `src/callsign.js` içinde tek bir yerde yapılır.
+
+Küre **hiçbir zaman IATA sefer numarası göstermez** ve bunun gerekçesi hâlâ
+geçerli (aşağıdaki "Sefer numarası" maddesi). Ama numarayı *göstermek* ile
+kullanıcıdan *almak* aynı şey değil: yolcunun elinde PC612 yazan bir biniş
+kartı var, onu kabul etmemek sayfayı tam da hedef kitlesi için kullanılamaz
+kılardı. Bu yüzden eşleme yapılır ve **yapıldığı söylenir**: karttaki kimlik
+her zaman çağrı işaretidir, girilen numara yanında bir not olarak durur —
+"PC612 için PGT612 çağrı işareti arandı. Sayısal seferlerde bu eşleşme tutar;
+harfli seferlerin IATA karşılığı yoktur."
+
+### Uçuşun evreleri
+
+`src/track.js` bir durum makinesi işletir:
+
+| Evre | Ne demek |
+| --- | --- |
+| `bekleniyor` | Çağrı işareti ADS-B verisinde yok. Kalkmamış, transponder kapalı ya da kapsama dışı olabilir |
+| `yerde` | Yerde, ve **bu takip boyunca havada görülmedi** |
+| `havada` | Havada |
+| `indi` | Havada görüldükten sonra yere indi. **Son durak** |
+| `kayip` | Havada görüldü, sonra 6 dakikadır sinyal yok |
+
+İniş yalnızca `yerde → havada → yerde` sırası gözlendiğinde ilan edilir. "Havada
+görüldü" bayrağı için irtifanın 300 m'yi, hızın 40 m/s'yi geçmesi aranır: park
+hâlindeki bazı uçaklar barometrik irtifa yollamaya devam ediyor ve o hâliyle
+"8 metrede uçuyor" okunuyor; bu latch olmadan bir sonraki anket iniş ilan
+ederdi. Bayrak `localStorage`'da tutulur, yani sayfa yenilense de uçuş
+ortasında dönülse de kaybolmaz.
+
+**Sinyalin kesilmesi iniş sayılmaz.** ADS-B gönüllü alıcılara dayanır ve uçaklar
+yerde transponder'ını kapatır: kapsama boşluğu ile iniş aynı şekilde sessizleşir.
+Bu durumda kart "Sinyal kesildi, iniş teyit edilemedi" der ve **ölçülmüş** olanı
+yazar: son verinin saati, irtifası, konumu, ve rota doğrulanmışsa varış
+havalimanına o anki uzaklık. 4 km'de 300 ft'teki bir sessizlik ile seyir
+irtifasında 400 km'deki bir sessizlik aynı şey değil; okuyucunun kalan şüpheyi
+ölçebilmesi için sayı verilir, ama iniş denmez.
+
+### Bildirim
+
+Kalkışta, inişte ve sinyal kesildiğinde tarayıcı bildirimi gönderilir; her biri
+takip başına bir kez. Kalkış bildirimi yalnızca uçağı **yerde görmüş** bir
+oturuma gider — sayfayı uçak seyir irtifasındayken açan birine "havalandı"
+demek uçuş hakkında değil sayfa hakkında haber vermek olurdu.
+
+Bu bir **tarayıcı bildirimi**, sunucu push'u değil: sayfa açık olduğu sürece
+çalışır (sekme arkada, telefon kilitli olabilir), kapalıyken çalışmaz. Gerçek
+web push için VAPID anahtar çifti, abonelikleri tutacak bir depo ve inişi fark
+edecek dakikalık bir cron gerekir — üçü de bu projenin bilinçli olarak
+kaçındığı şeyler (anahtar, veritabanı, ücretli zamanlayıcı). Ekleme kararı
+sorulmadan alınmadı; `DESIGN.md`'de gerekçesi var.
+
+Android sayfadan `new Notification()` çağrılmasına izin vermez, bildirimin bir
+service worker'dan çıkması gerekir: `public/sw.js` bunun için var ve **hiçbir
+şey cache'lemez** (her deploy sonrası bayat bir kabuk servis etmemek için).
+iOS'ta bildirim yalnızca ana ekrana eklenmiş bir PWA'da çalışır; bu yüzden
+`public/manifest.webmanifest` ve `public/icon-*.png` var. Simgeler
+`tools/make-icons.mjs` ile üretilir — küredeki uçak simgesinin aynı poligonu.
+
+### Varış tahmini
+
+Rota doğrulanmışsa (yani `api/route.js` iki kaynağın hemfikir olduğunu
+söylüyorsa) kartta ilerleme çubuğu, kalan mesafe ve tahmini varış saati
+görünür. Tahmin, kalan büyük daire mesafesinin **o anki yer hızına** bölümüdür
+ve ekranda böyle etiketlenir ("mevcut hıza göre"). Tarife, rüzgâr ve iniş
+profili yok; onlar ücretli bir uçuş planı API'si ister.
+
+### Küreyle bağ
+
+Karttaki "Haritada gör" düğmesi küreyi `/?ucus=PGT612` ile açar; küre o uçağı
+beslemede görür görmez seçer, gerekiyorsa liste kipini de değiştirir. Küredeki
+"Uçuş takibi" düğmesi ters yönde çalışır.
+
 ## Yerel geliştirme
 
 ```bash
@@ -321,6 +420,8 @@ aksi halde yerelde uçuş görünmez.
 
 `/diag.html` adresinde, veri yolunu tarayıcıdan test edip sonucu ekrana yazan
 bir teşhis sayfası var.
+
+Sayfa simgeleri değişirse `node tools/make-icons.mjs` ile yeniden üretilir.
 
 ## Ortam değişkenleri
 
@@ -343,6 +444,9 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
    kullanılabilirse doğrudan alt domain olarak atar: `pgsradar.vercel.app`.
 4. `/api` klasörü Vite build'inin dışında, serverless function olarak
    ayrıca deploy edilir; ek ayar gerekmez.
+5. `vercel.json` içindeki tek rewrite `/takip` adresini `takip.html`e
+   bağlar (`cleanUrls` açılmadı: o, `/diag.html` gibi mevcut adresleri de
+   yönlendirirdi).
 
 ## Bilinen sınırlamalar / geliştirilebilecek noktalar
 
@@ -382,3 +486,11 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
   eşleşmesi yaygın bir pratiktir, kural değil.
 - **Mobil**: 680px altında uçuş listesi, durum rozetine dokununca açılan bir
   alt panele dönüşür (bkz. aşağıdaki not).
+- **Bildirim sayfa kapalıyken gelmez.** `/takip` tarayıcı bildirimi kullanır;
+  sunucu push'u anahtar + depo + dakikalık cron ister. iOS'ta ayrıca sayfanın
+  ana ekrana eklenmiş olması gerekir.
+- **İniş tespiti beslemeye bağlıdır.** Uçak inişten hemen sonra transponder'ını
+  kapatırsa iniş "teyit edilemedi" olarak kalır; sayfa tahmin yürütmez.
+- **Takip tek uçuş içindir.** Aynı anda birden fazla uçuş izlenemez; ikinci bir
+  uçuş takibe alındığında birincisinin ilerlemesi (havada görülmüş olması
+  dahil) silinir.

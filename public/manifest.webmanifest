@@ -1,0 +1,17 @@
+{
+  "name": "PGS Radar — Uçuş Takibi",
+  "short_name": "Uçuş Takibi",
+  "description": "Pegasus sefer numarasını girin, uçuşu iniş anına kadar takip edin.",
+  "lang": "tr",
+  "start_url": "/takip",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f7",
+  "theme_color": "#ff6a13",
+  "icons": [
+    { "src": "/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

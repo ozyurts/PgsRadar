@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Uçuş Takibi — PGS Radar</title>
+  <meta name="description" content="Pegasus sefer numarasını girin, uçuşu iniş anına kadar takip edin." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Uçuş Takibi" />
+  <meta name="theme-color" content="#ff6a13" />
+</head>
+<body class="track">
+  <div class="wrap">
+    <header class="head">
+      <a class="brand" href="/takip">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>PGS Radar <b>Uçuş Takibi</b></span>
+      </a>
+      <a class="ghost-link" href="/">Tüm filo →</a>
+    </header>
+
+    <!-- Entry -->
+    <section class="card entry" id="entry">
+      <h1>Uçuşunuzu takip edin</h1>
+      <p class="lede">
+        Pegasus sefer numarasını yazın. Uçuş boyunca konumunu izler, indiğinde
+        haber verip takibi kapatırız.
+      </p>
+
+      <form id="lookupForm" autocomplete="off">
+        <input
+          id="flightInput"
+          type="text"
+          name="ucus"
+          placeholder="PC612"
+          aria-label="Pegasus sefer numarası"
+          autocapitalize="characters"
+          spellcheck="false"
+          maxlength="10"
+          required
+        />
+        <button type="submit">Takip et</button>
+      </form>
+
+      <p class="error" id="lookupError" hidden></p>
+      <p class="hint">
+        <code>PC612</code>, <code>612</code> ya da çağrı işaretinin kendisi
+        (<code>PGT480Q</code>) kabul edilir.
+      </p>
+
+      <div class="suggest" id="suggest" hidden>
+        <h2 id="suggestTitle">Şu anda havada</h2>
+        <div class="chips" id="suggestList"></div>
+      </div>
+    </section>
+
+    <!-- Tracker -->
+    <section class="card tracker" id="tracker" hidden>
+      <div class="tracker-head">
+        <div>
+          <div class="callsign" id="tCallsign">—</div>
+          <div class="sub" id="tSub">—</div>
+        </div>
+        <span class="badge" id="tBadge">—</span>
+      </div>
+
+      <p class="note" id="tNote" hidden></p>
+
+      <div class="banner" id="tBanner" hidden></div>
+
+      <div class="route" id="tRoute" hidden>
+        <div id="tRouteKnown">
+          <div class="route-ends">
+            <div class="end">
+              <strong id="tFromCode">—</strong>
+              <span id="tFromName">—</span>
+            </div>
+            <div class="end to">
+              <strong id="tToCode">—</strong>
+              <span id="tToName">—</span>
+            </div>
+          </div>
+          <div class="bar" id="tBar" hidden><span id="tBarFill"></span></div>
+          <div class="route-meta" id="tRouteMeta" hidden></div>
+        </div>
+        <p class="route-unknown" id="tRouteUnknown" hidden></p>
+      </div>
+
+      <div class="grid" id="tGrid">
+        <div><span>İrtifa</span><strong id="tAlt">—</strong></div>
+        <div><span>Yer hızı</span><strong id="tSpeed">—</strong></div>
+        <div><span>Dikey hız</span><strong id="tVs">—</strong></div>
+        <div><span>Konum</span><strong id="tPos">—</strong></div>
+      </div>
+
+      <div class="live-line" id="tLive">
+        <span class="status-dot" id="tDot"></span>
+        <span id="tUpdated">Bağlanıyor…</span>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="notifyBtn" class="primary">Bildirimleri aç</button>
+        <button type="button" id="shareBtn">Bağlantıyı paylaş</button>
+        <a class="btn" id="mapLink" href="/">Haritada gör</a>
+        <button type="button" id="retryBtn" hidden>Yeniden dene</button>
+        <button type="button" id="stopBtn" class="quiet">Takibi bırak</button>
+      </div>
+
+      <p class="notify-state" id="notifyState" hidden></p>
+    </section>
+
+    <footer class="foot">
+      <span>Veri: <a href="https://adsb.lol" target="_blank" rel="noopener">adsb.lol</a> ·
+      <a href="https://adsb.fi" target="_blank" rel="noopener">adsb.fi</a></span>
+      <span>Tarife değil, canlı ADS-B.</span>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/track.js"></script>
+</body>
+</html>

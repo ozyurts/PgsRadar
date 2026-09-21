@@ -16,13 +16,18 @@ Pegasus filosunun (çağrı işareti `PGT`) canlı ADS-B konumlarını 3B bir k�
 üzerinde gösteren, anahtarsız ve ücretsiz kaynaklarla çalışan bağımsız bir web
 uygulaması. Yayın: <https://pgsradar.vercel.app>
 
+İki sayfa: küre (`/`, `src/main.js`) ve tek uçuş takibi
+(`/takip`, `src/track.js` — sefer numarası girilir, iniş bildirimiyle biter).
+İkisi de aynı `/api/states` yanıtını tüketir.
+
 ## Yığın
 
 | Katman | Ne |
 | --- | --- |
-| İstemci | Vite 5 + CesiumJS (`vite-plugin-cesium`), çerçevesiz, düz JS |
+| İstemci | Vite 5 (çok sayfalı) + CesiumJS (`vite-plugin-cesium`), çerçevesiz, düz JS |
 | Sunucu | Vercel serverless fonksiyonları, `api/*.js`, ESM (`"type": "module"`) |
 | Paylaşılan | `lib/` — `api/` dışında, çünkü `api/` altındaki her dosya bir uç nokta olur |
+| İki sayfa ortak | `src/tokens.css` (palet), `src/ports.js` (havalimanı etiketleri), `src/callsign.js`, `src/flights.js` |
 | Bölge | `fra1` (veri kaynaklarına yakın) |
 
 Cesium ion hesabı **yok**: `baseLayer: false` + `EllipsoidTerrainProvider`.
@@ -41,21 +46,28 @@ Harita karoları Esri'nin anahtarsız servislerinden gelir.
 3. **Hafızadan iddia etme, ölç.** Bir üst kaynağın davranışı, bir karo
    servisinin filigranı, bir alanın gerçekten dolu gelip gelmediği — hepsi
    ölçülür. Yöntem aşağıda.
-4. **Geliştirme dalı:** `claude/vercel-site-setup-cra8xt`. İzin alınmadan başka
-   dala push edilmez. Açıkça istenmedikçe PR açılmaz.
+4. **Geliştirme dalı oturum başında verilir.** Şu an:
+   `claude/pegasus-flight-tracking-x6p4yl`. (Önceki dal:
+   `claude/vercel-site-setup-cra8xt`.) İzin alınmadan başka dala push edilmez.
+   Açıkça istenmedikçe PR açılmaz.
 5. **Commit mesajları Türkçe**, kod yorumları İngilizce. Mesaj ne yapıldığını
    değil **neden** yapıldığını anlatır; değiştirilen bir kararın eski gerekçesi
    de yazılır.
-6. Commit sonuna şu iki satır eklenir:
+6. Commit sonuna şu iki satır eklenir (ikincisi **o oturumun** adresidir):
    ```
    Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-   Claude-Session: https://claude.ai/code/session_01QgPMhCtrCXSw4wEN5d3sHX
+   Claude-Session: https://claude.ai/code/session_<bu oturum>
    ```
    Model adı commit/PR/kod yorumu gibi depoya giren hiçbir yere yazılmaz
    (yukarıdaki trailer bunun tek istisnasıdır).
 7. **Arayüz dili Türkçe.** Hata mesajları dahil.
 8. TLS doğrulaması kapatılmaz, `HTTPS_PROXY` kaldırılmaz. Kurum politikası
    reddi (403/407) tekrar denenmez, bildirilir.
+9. **`/api/states`e uçuşa özel parametre eklenmez.** Edge cache anahtarı sorgu
+   dizesidir: `?callsign=PGT612` demek, o uçuş için ayrı bir cache girdisi ve
+   ayrı bir 12 daire taraması demektir. Tek uçuş isteyen istemci tüm filoyu
+   alıp kendi süzer (`src/track.js`). Bunu bozmak, tek bir bağlantıyı yüz
+   kişinin paylaştığı anda üst kaynağı yüz kat daha fazla yorar.
 
 ---
 
@@ -99,6 +111,21 @@ Sahte sunucu `dist/`i servis eder ve `/api/states` ile `/api/route`u taklit
 eder (çalışma dizini dışında, scratchpad'de tutulur). Ekran görüntüsü almadan
 "yaptım" denmez.
 
+**Zamana bağlı davranışlar sahne dosyası değiştirilerek doğrulanır.** Sahte
+sunucu her istekte `scenario.json`'u yeniden okur, sürücü betiği de iki anket
+arasında dosyayı değiştirir: uçak havadayken yazılan bir "yerde" kaydı inişi
+tetikler. Beklemeyi kısaltmak için doğrulama derlemesi
+`VITE_POLL_INTERVAL_MS=3000 npm run build` ile yapılır — **sonra varsayılanla
+yeniden derlenir.** Aylarca sürecek durumlar (6 dakikalık sinyal boşluğu gibi)
+sahnelenemiyorsa `localStorage` doğrudan tohumlanır
+(`context.addInitScript`).
+
+Bildirimlerin gerçekten atıldığı da ölçüldü: `context.grantPermissions`,
+ardından `Notification` ile `ServiceWorkerRegistration.prototype.showNotification`
+bir init script'te kaydediciyle değiştirilir. Ölçülen: yerde → havada (kalkış
+bildirimi) → yerde (iniş bildirimi) → yenileme (yeni bildirim yok, kart
+"indi"de kalıyor).
+
 > **Tuzak:** `pkill -f "verify/server.mjs"` komutu **kendi kabuğunu da**
 > öldürür, çünkü kabuk komut satırında o metin geçer. Aynı komutta pkill ile
 > başka iş yapma; port için `fuser -k 4173/tcp` kullan.
@@ -122,6 +149,22 @@ eder (çalışma dizini dışında, scratchpad'de tutulur). Ekran görüntüsü 
   halindeyken de `alt_geom` yollar. Yer bayrağı irtifadan **önce** okunur.
 - Cesium'un kendi stil dosyası özgüllükte kazanabilir; atıf şeridi gibi
   şeyleri ezmek için `.cesium-viewer` öneki gerekebilir.
+- **`vite-plugin-cesium` etiketlerini *her* HTML girişine enjekte eder**:
+  `widgets.css` her zaman, üretim derlemesinde ayrıca bloklayıcı bir
+  `<script src="/cesium/Cesium.js">`. Sayfa başına seçeneği yok. `takip.html`
+  bunları `vite.config.js` içindeki `cesiumOnlyOnGlobe` eklentisiyle söküyor;
+  yeni bir sayfa eklenirse aynı şey gerekir, yoksa sayfa birkaç MB'lik bir 3B
+  motoru boşuna indirir. Kontrol: `head -8 dist/<sayfa>.html`.
+- **Durum sınıfı ile yerleşim sınıfı aynı adı taşıyabilir.** `.status-dot.live`
+  (nokta yeşil yanar) ile kapsayıcıya verilen `.live` çakıştı: kapsayıcının
+  `margin-top: 18px`'i 7 piksellik noktaya da uygulandı ve nokta satırın
+  altına kaydı. Kapsayıcı `.live-line` oldu. Nokta bir yerde satırından
+  kayıyorsa önce sınıf adı çakışmasına bakılır.
+- **Android'de `new Notification()` çalışmaz**; bildirim bir service
+  worker'dan (`registration.showNotification`) çıkmak zorundadır. iOS'ta ise
+  bildirim yalnızca ana ekrana eklenmiş PWA'da çalışır (manifest + ikon şart).
+- **`navigator.serviceWorker.ready` hiç kayıt yoksa asla resolve etmez.**
+  Kayıt sonucu bir değişkende tutulur (`swRegistration`), `ready` beklenmez.
 
 ---
 
