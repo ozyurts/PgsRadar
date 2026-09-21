@@ -73,6 +73,25 @@ zumda kadrajın dışındadır — uzaklaşınca ya da çizgi boyunca kaydırın
 görünür. Yalnızca varış işaretlenir: kalkış uçağın arkasında kalır ve
 "bu nereye gidiyor" sorusuna bir şey katmaz.
 
+#### Listede rota
+
+Havadakiler listesinde her satırın ikinci satırı tescil numarasının yanına
+kalkış/varış çiftini de yazar: `TC-NCA · SAW → ESB`. Ad değil kod, çünkü
+"Sabiha Gökçen → Esenboğa" telefon genişliğindeki bir satıra sığmıyor ve
+noktalanarak kesilmiş adlardan oluşan bir sütun tam da kaçınılmak istenen
+görüntü. Kart adları zaten açık yazıyor.
+
+Rota doğrulanamamışsa satır yalnızca tescil numarasıyla kalır — satır
+yüksekliği değişmez, boşluk açılmaz.
+
+Bu, bir uçuş yerine yirmi küsur sorgu demek. Üç şey bunu ucuzlatıyor:
+cevaplar sayfa ömrü boyunca hatırlanır, aynı anda en fazla dört istek
+yolda olur (`ROUTE_CONCURRENCY`) ve uç nokta çağrı işareti başına altı saat
+kenarda önbelleklenir — yani bir uçuş kalktıktan sonraki ilk ziyaretçi
+bedelini öder, sonrakiler CDN'den okur. Bir çağrı işaretinin cevabı uçuş
+ortasında değişmediği için çelişki ve bilinmeyen de aynı şekilde
+önbelleklenir; hiçbir satır iki kez sorulmaz.
+
 > **Not:** Yön projeksiyonuna düşüldüğünde çizgi bir **uçuş planı değildir**;
 > "mevcut rotası sürerse nereye varır" demektir. Süresi `src/main.js`
 > içindeki `COURSE_SECONDS` ile ayarlanır.

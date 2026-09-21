@@ -717,6 +717,7 @@ function renderList() {
         'flight-row' +
         (f.icao24 === activeIcao ? ' active' : '') +
         (f.onGround ? ' ground' : '');
+      row.dataset.callsign = f.callsign;
 
       // Built with textContent rather than innerHTML: callsign and country come
       // straight from a third-party feed and must not be parsed as markup.
@@ -730,15 +731,13 @@ function renderList() {
       cs.textContent = f.callsign;
       const origin = document.createElement('div');
       origin.className = 'origin';
-      // For a parked aircraft the airport is the whole point of the row; the
-      // registration alone says nothing about where it is.
-      origin.textContent = f.onGround
-        ? [f.registration, f.airport ? airportLabel(f.airport) : null]
-            .filter(Boolean)
-            .join(' · ')
-        : f.registration || '';
+      origin.textContent = rowSubtitle(f);
       if (f.onGround && f.airport) origin.title = portTitle(f.airport);
       info.append(cs, origin);
+
+      // Asked for once per callsign, then read from the cache on every
+      // re-render — including the one every poll triggers.
+      if (!f.onGround) queueRoute(f.callsign);
 
       const metrics = document.createElement('div');
       metrics.className = 'metrics';
@@ -763,6 +762,106 @@ function renderList() {
 // that is in flight lets a late answer for a deselected aircraft be dropped
 // rather than written into the card of whatever is selected by then.
 let routeRequest = null;
+
+// ---------- Route prefetch ----------
+// The list wants a route for every flight, not just the selected one, which
+// turns one lookup into twenty-odd. Three things keep that affordable:
+// answers are remembered for the life of the page, only a few requests are
+// allowed out at a time, and the endpoint is cached at the edge for six hours
+// per callsign — so the first visitor after a flight departs pays for it and
+// everyone after reads it from the CDN.
+//
+// A callsign's answer does not change mid-flight: a conflict or an unknown is
+// a property of the two databases, not of the moment. So they are cached the
+// same as a confirmed route, and no row is asked for twice.
+const routeCache = new Map();
+const routePending = new Map();
+const routeQueue = [];
+const ROUTE_CONCURRENCY = 4;
+let routeWorkers = 0;
+
+function fetchRouteOnce(callsign) {
+  if (routeCache.has(callsign)) return Promise.resolve(routeCache.get(callsign));
+  if (routePending.has(callsign)) return routePending.get(callsign);
+
+  const request = fetchRoute(callsign)
+    .then((result) => {
+      routeCache.set(callsign, result);
+      return result;
+    })
+    .finally(() => routePending.delete(callsign));
+
+  routePending.set(callsign, request);
+  return request;
+}
+
+function pumpRoutes() {
+  while (routeWorkers < ROUTE_CONCURRENCY && routeQueue.length) {
+    const callsign = routeQueue.shift();
+    routeWorkers++;
+    fetchRouteOnce(callsign)
+      .then(() => applyRouteToRows(callsign))
+      // A failed lookup leaves the row on its registration, which is what it
+      // showed before the answer was asked for. Nothing to report.
+      .catch(() => {})
+      .finally(() => {
+        routeWorkers--;
+        pumpRoutes();
+      });
+  }
+}
+
+function queueRoute(callsign) {
+  if (routeCache.has(callsign) || routePending.has(callsign)) return;
+  if (routeQueue.includes(callsign)) return;
+  routeQueue.push(callsign);
+  pumpRoutes();
+}
+
+/** Patch the rows for one callsign in place — re-rendering the whole list on
+ *  each of twenty answers would flicker and fight the scroll position. */
+function applyRouteToRows(callsign) {
+  const flight = flights.find((f) => f.callsign === callsign);
+  if (!flight) return;
+
+  for (const row of els.list.querySelectorAll(
+    `[data-callsign="${CSS.escape(callsign)}"]`
+  )) {
+    const subtitle = row.querySelector('.origin');
+    if (subtitle) subtitle.textContent = rowSubtitle(flight);
+  }
+}
+
+/**
+ * The second line of a list row. One line, always: an airborne aircraft adds
+ * its route once that is known and keeps the registration alone until then,
+ * so rows never change height and a flight whose route the databases dispute
+ * does not leave a hole where the others have text.
+ *
+ * Codes rather than names here. "Sabiha Gökçen → Esenboğa" is better reading
+ * but it does not fit a phone-width row, and a column of ellipsised names is
+ * exactly the mess this is meant to avoid. The card still spells them out.
+ */
+function rowSubtitle(f) {
+  if (f.onGround) {
+    return [f.registration, f.airport ? airportLabel(f.airport) : null]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  const route = routeCache.get(f.callsign);
+  const pair =
+    route?.status === 'confirmed'
+      ? `${portCode(route.origin)} → ${portCode(route.destination)}`
+      : null;
+
+  return [f.registration, pair].filter(Boolean).join(' · ');
+}
+
+/** IATA where there is one — it is the code on the boarding pass. */
+function portCode(port) {
+  return port?.iata || port?.icao || '?';
+}
 
 /**
  * The airport a grounded aircraft is standing on, as one line.
@@ -918,13 +1017,24 @@ function showGroundAirport(f) {
 
 function loadRoute(callsign) {
   routeRequest?.abort();
-  const controller = new AbortController();
-  routeRequest = controller;
-
   activeRoute = null;
   els.dRoute.hidden = true;
+
+  // The list has usually asked for this already, so selecting a flight fills
+  // the card immediately rather than after a round trip.
+  if (routeCache.has(callsign)) {
+    showRoute(callsign, routeCache.get(callsign));
+    return;
+  }
+
+  const controller = new AbortController();
+  routeRequest = controller;
   fetchRoute(callsign, { signal: controller.signal })
-    .then((result) => showRoute(callsign, result))
+    .then((result) => {
+      routeCache.set(callsign, result);
+      applyRouteToRows(callsign);
+      showRoute(callsign, result);
+    })
     .catch((err) => {
       if (err?.name !== 'AbortError') showRoute(callsign, null);
     });
