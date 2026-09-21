@@ -28,7 +28,9 @@ async function probe(url, timeout = 5000) {
       count: Array.isArray(json?.ac) ? json.ac.length
            : Array.isArray(json?.aircraft) ? json.aircraft.length : null,
       sample: (json?.ac || json?.aircraft || [])[0] ?? null,
-      body: json ? undefined : text.slice(0, 160),
+      // Keep the body whenever the call did not succeed: a refusal's message
+      // is the whole point of asking.
+      body: res.ok && json ? undefined : text.slice(0, 400),
     };
   } catch (err) {
     return { url, error: String(err?.name || err), ms: Date.now() - t0 };
@@ -44,6 +46,11 @@ export default async function handler(req, res) {
     `https://api.airplanes.live/v2/lat/${SAW[0]}/lon/${SAW[1]}/dist/${NM}`,
     `https://api.airplanes.live/v2/mil`,
     `https://api.airplanes.live/v2/callsign/PGT770`,
+    `https://api.airplanes.live/v2/all`,
+    `https://api.airplanes.live/`,
+    // Does the refusal follow the host or the path? A plain page tells us
+    // whether the whole site refuses this IP or only the API does.
+    `https://airplanes.live/api/`,
   ];
   out.discovery = await Promise.all(candidates.map((u) => probe(u, 5000)));
 
