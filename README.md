@@ -45,6 +45,29 @@ kısmını düşürüyordu ve düşen her daire haritada delik demekti. Bir kıs
 başarısız olursa yanıt `degraded: true` ile işaretlenir ve başarısız koordinatlar
 loglanır.
 
+### Üçüncü bir kaynak denendi, bulunamadı
+
+Şu an iki kaynak var ve biri kapanırsa diğeri devralıyor. Üçüncü bir anahtarsız
+toplayıcı eklemek için adaylar **21 Eylül 2026'da fra1'den ölçüldü**; hiçbiri
+kullanılabilir değil:
+
+| Aday | Sonuç |
+| --- | --- |
+| `api.airplanes.live` | Her yol **403**: "Please contact us at contact@airplanes.live…" — onay kapısı. Ana site erişilebilir, yani IP engeli değil |
+| `api.adsb.one` | **403**, Cloudflare "Attention Required" sayfası |
+| `adsb.one/api/v2/...` | 200 ama HTML — sitenin kendi arayüzü, API değil |
+| `api.theairtraffic.com` | Ad çözülmüyor |
+| `api.planes.live` | Ad çözülmüyor |
+| `api.adsb.lol` (kontrol) | **200**, 84 uçak — ölçümün kendisi çalışıyor |
+
+Sonuç: anahtarsız üçüncü kaynak yok. airplanes.live e-postayla başvuruya açık
+ama bu, kaynağı kişisel bir onaya bağlar ve "anahtarsız kal" kuralından sapar;
+eklenmeden önce sorulmalı.
+
+Aynı ölçümde hız limiti de yeniden doğrulandı: `api.adsb.lol`'a aralıksız 6
+sorgu → **2'si 429**. Yani tek kaynak 12 dairenin tamamını taşıyamaz; bir
+sağlayıcı düştüğünde kapsama eksilir (`degraded: true`).
+
 ### Neden OpenSky değil
 
 Proje OpenSky ile başlamıştı; iki bağımsız engel yüzünden bırakıldı:
