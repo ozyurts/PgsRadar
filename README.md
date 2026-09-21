@@ -81,15 +81,19 @@ görünür. Yalnızca varış işaretlenir: kalkış uçağın arkasında kalır
 
 Apronda ve taksi yolundaki uçaklar kendi katmanlarında çizilir: küçük, gri,
 izsiz ve rota çizgisiz. **Aktif uçuşlar** panelinin başlığındaki
-**Yerdekiler** düğmesiyle açılıp kapatılır; tercih `localStorage`'a yazılır.
-Düğme harita kontrollerinde değil listede duruyor, çünkü aynı anda listeyi de
-süzüyor — harita zemini seçimiyle yan yana durması onu bir zemin seçeneği
-gibi gösteriyordu.
+**Havadakiler / Yerdekiler** anahtarı hangisinin gösterileceğini seçer;
+tercih `localStorage`'a yazılır.
 
-Neden ayrı: günün herhangi bir saatinde filonun önemli bir kısmı Sabiha
-Gökçen'de park halindedir. Havadakilerle aynı simgeyle çizilseler üst üste
-binip hub'ı tek bir turuncu lekeye çevirirlerdi. Listede de havadakilerden
-sonra gelirler ve soluk görünürler — uçuşları ekrandan itmesinler diye.
+İki liste aynı anda gösterilmiyor çünkü iki ayrı soruya cevap veriyorlar ve
+karışınca ikisi de kayboluyor: günün herhangi bir saatinde filonun önemli bir
+kısmı Sabiha Gökçen'de park halindedir, o kalabalık uçuşları ekrandan iter;
+tersi durumda da yirmi uçuşun arasında taksi yapan tek uçak kaybolur. Harita
+listeyi izler — listelenen ne ise çizilen odur, ikisinin ayrıştığı üçüncü bir
+durum yok.
+
+Anahtar harita kontrollerinde değil listede duruyor: aynı anda listeyi de
+seçtiği için harita zemini seçicisinin yanında bir zemin seçeneği gibi
+görünüyordu.
 
 Bu katman eklenene kadar yerdeki uçaklar **kısmen** görünüyordu, ki hiç
 görünmemelerinden kötüydü. Sebep `api/states.js` içindeki irtifa seçimiydi:

@@ -27,9 +27,10 @@
         <span class="count" id="flightCount">0</span>
       </div>
       <div class="panel-filter">
-        <button class="layer-toggle" id="groundToggle" type="button" aria-pressed="true">
-          Yerdekiler
-        </button>
+        <div class="mode-switch" id="modeSwitch" role="group" aria-label="Uçuş listesi">
+          <button type="button" data-mode="air" aria-pressed="true">Havadakiler</button>
+          <button type="button" data-mode="ground" aria-pressed="false">Yerdekiler</button>
+        </div>
       </div>
       <div class="flight-list" id="flightList"></div>
     </aside>

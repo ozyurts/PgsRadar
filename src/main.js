@@ -236,22 +236,23 @@ const fleet = new Map();    // icao24 -> { flight, receivedAt, history }
 let flights = [];
 let activeIcao = null;
 
-// ---------- Ground layer ----------
-// Aircraft on the apron and the taxiways are their own layer: at any moment a
-// good part of the fleet is parked at Sabiha Gokcen, and drawn like the
-// airborne ones they would bury the hub under a single orange blob. They are
-// small, grey, trail-less — and switchable, because most of the time the
-// question is "what is flying", not "what is parked".
-const GROUND_STORAGE_KEY = 'pgsradar.ground';
-let showGround = true;
+// ---------- Air / ground mode ----------
+// "What is flying" and "what is on the ground" are two different questions,
+// and mixing their answers served neither: the parked aircraft pushed the
+// flights off the screen, and the flights buried the single taxiing one. So
+// the list shows one group at a time, and the map follows it — what is listed
+// is what is drawn, with no third state where the two disagree.
+const LIST_MODE_STORAGE_KEY = 'pgsradar.list';
+let listMode = 'air';
 try {
-  showGround = localStorage.getItem(GROUND_STORAGE_KEY) !== '0';
+  if (localStorage.getItem(LIST_MODE_STORAGE_KEY) === 'ground') listMode = 'ground';
 } catch {
-  // Private browsing refuses reads; fall back to showing them.
+  // Private browsing refuses reads; start on the flights.
 }
 
 function visibleFlights() {
-  return showGround ? flights : flights.filter((f) => !f.onGround);
+  const wantGround = listMode === 'ground';
+  return flights.filter((f) => Boolean(f.onGround) === wantGround);
 }
 
 // ---------- Dead reckoning ----------
@@ -417,14 +418,23 @@ const els = {
   statusPill: document.getElementById('statusPill'),
   panel: document.getElementById('panel'),
   scrim: document.getElementById('scrim'),
-  groundToggle: document.getElementById('groundToggle'),
+  modeSwitch: document.getElementById('modeSwitch'),
 };
 
-function setGroundVisible(visible) {
-  showGround = visible;
-  els.groundToggle?.setAttribute('aria-pressed', String(visible));
+const modeButtons = [...(els.modeSwitch?.querySelectorAll('button') ?? [])];
+
+function syncModeSwitch() {
+  for (const button of modeButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.mode === listMode));
+  }
+}
+
+function setListMode(mode) {
+  if (mode !== 'air' && mode !== 'ground') return;
+  listMode = mode;
+  syncModeSwitch();
   try {
-    localStorage.setItem(GROUND_STORAGE_KEY, visible ? '1' : '0');
+    localStorage.setItem(LIST_MODE_STORAGE_KEY, mode);
   } catch {
     // Private browsing refuses writes; the choice just will not persist.
   }
@@ -433,8 +443,10 @@ function setGroundVisible(visible) {
   dropSelectionIfHidden();
 }
 
-els.groundToggle?.addEventListener('click', () => setGroundVisible(!showGround));
-els.groundToggle?.setAttribute('aria-pressed', String(showGround));
+for (const button of modeButtons) {
+  button.addEventListener('click', () => setListMode(button.dataset.mode));
+}
+syncModeSwitch();
 
 // ---------- Flight list sheet (phones) ----------
 // On a narrow screen the list is a sheet rather than a fixed column. Desktop
@@ -677,34 +689,19 @@ function renderList() {
   if (rows.length === 0) {
     els.list.replaceChildren(Object.assign(document.createElement('div'), {
       className: 'empty-state',
-      textContent: `Şu anda ${CALLSIGN_PREFIX} çağrı işaretli uçuş görünmüyor, ya da veri henüz gelmedi.`,
+      textContent:
+        listMode === 'ground'
+          ? `Şu anda yerde ${CALLSIGN_PREFIX} çağrı işaretli uçak görünmüyor. Park eden uçaklar çoğunlukla transponder'ını kapatır.`
+          : `Şu anda havada ${CALLSIGN_PREFIX} çağrı işaretli uçuş görünmüyor, ya da veri henüz gelmedi.`,
     }));
     return;
   }
 
   els.list.replaceChildren();
-  let groundHeaderDone = false;
   rows
     .slice()
-    // Airborne first: the ones on the ground are context, and on a busy
-    // afternoon there are enough of them to push every flight off the screen.
-    .sort(
-      (a, b) =>
-        Number(a.onGround) - Number(b.onGround) ||
-        a.callsign.localeCompare(b.callsign)
-    )
+    .sort((a, b) => a.callsign.localeCompare(b.callsign))
     .forEach((f) => {
-      // The two groups answer different questions, so the list says where one
-      // ends and the other begins rather than letting the flights fade into
-      // the parked aircraft.
-      if (f.onGround && !groundHeaderDone) {
-        groundHeaderDone = true;
-        const header = document.createElement('div');
-        header.className = 'list-section';
-        header.textContent = 'Yerde';
-        els.list.appendChild(header);
-      }
-
       const row = document.createElement('div');
       row.className =
         'flight-row' +

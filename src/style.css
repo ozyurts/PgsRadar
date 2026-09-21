@@ -211,18 +211,6 @@ body {
   flex: 1;
 }
 
-/* Where the flights end and the parked aircraft begin. */
-.list-section {
-  padding: 14px 10px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  opacity: 0.7;
-}
-.list-section:first-child { padding-top: 6px; }
-
 .flight-row {
   display: flex;
   align-items: center;
@@ -243,11 +231,6 @@ body {
   background: var(--accent);
   flex-shrink: 0;
 }
-/* Parked and taxiing aircraft are listed after the flights and read as
-   background: same row, less ink. */
-.flight-row.ground { opacity: 0.62; }
-.flight-row.ground:hover,
-.flight-row.ground.active { opacity: 1; }
 .flight-row.ground .dot { background: #6b7684; }
 .flight-row .info { flex: 1; min-width: 0; }
 .flight-row .cs {
@@ -419,41 +402,34 @@ body {
   color: #fff;
 }
 
-/* Inside the panel there is no glass to repeat, so the switch is a plain
-   chip. It does not take the accent colour when on: the ground layer is
-   background to the flights, and it only has to stop looking switched off. */
-.layer-toggle {
+/* Two lists, one at a time. A segmented control rather than a checkbox: the
+   two are alternatives, and neither is a modifier of the other. Inside the
+   panel there is no glass to repeat, so the track is a plain recess. */
+.mode-switch {
   display: inline-flex;
-  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.12);
+}
+.mode-switch button {
   appearance: none;
-  border: 1px solid var(--border);
+  border: 0;
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 500;
-  padding: 5px 12px;
+  padding: 5px 13px;
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.layer-toggle:hover { color: var(--text-primary); }
-.layer-toggle::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.35;
-}
-.layer-toggle[aria-pressed='true'] {
+.mode-switch button:hover { color: var(--text-primary); }
+.mode-switch button[aria-pressed='true'] {
+  background: var(--surface-solid);
   color: var(--text-primary);
-  background: rgba(127, 127, 127, 0.12);
-}
-.layer-toggle[aria-pressed='true']::before {
-  background: #6b7684;
-  opacity: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .foot {
