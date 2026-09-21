@@ -20,6 +20,11 @@ const ALLOWED = new Set([
   'www.flypgs.com',
   'flypgs.com',
   'www.pegasusairlines.com',
+  'web.flypgs.com',
+  // The sandbox reaches raw.githubusercontent.com but not github.com or the
+  // API, and listing a repository's tree needs the API.
+  'api.github.com',
+  'raw.githubusercontent.com',
 ]);
 
 const USER_AGENT = 'pgsradar (+https://pgsradar.vercel.app)';
