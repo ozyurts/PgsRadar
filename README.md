@@ -187,12 +187,16 @@ yaparsa `src/main.js` içindeki `ESRI` sabitini değiştirmek yeterli.
 
 Alt ortadaki seçiciden üç zemin arasında geçiş yapılır; tercih tarayıcıda
 saklanır. `src/main.js` içindeki `BASEMAPS` tablosuna satır eklemek yeni bir
-seçenek için yeterlidir.
+seçenek için yeterlidir, varsayılan ise `DEFAULT_BASEMAP` ile belirlenir.
+Varsayılan rölyef: küreye üstünde durduğu bir zemin veriyor, tam coğrafi bir
+haritanın etiket kalabalığını getirmeden — irtifadaki bir uçağın "bir yerin
+üstünde" okunmasını sağlayan şey bu. Daha önce seçim yapmış bir ziyaretçinin
+tercihi değişmez; varsayılan yalnızca ilk açılışta geçerlidir.
 
 | Seçenek | Katman | Not |
 | --- | --- | --- |
-| Sade | Light Gray Canvas | Varsayılan. Aynı karonun boyutu ~3 KB |
-| Rölyef | World Shaded Relief | Coğrafi ama sakin. ~14 KB. En fazla z13 |
+| Sade | Light Gray Canvas | Aynı karonun boyutu ~3 KB |
+| Rölyef | World Shaded Relief | **Varsayılan.** Coğrafi ama sakin. ~14 KB. En fazla z13 |
 | Uydu | World Imagery | ~22 KB. z19'a kadar iner |
 
 Karo boyutu görsel yoğunluğun iyi bir göstergesi: rölyef sade zeminin ~4

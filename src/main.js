@@ -69,9 +69,13 @@ const BASEMAPS = {
 };
 
 const BASEMAP_STORAGE_KEY = 'pgsradar.basemap';
+// Shaded relief by default: it gives the globe terrain to sit on without the
+// label clutter of a full geographic map, which is what makes an aircraft at
+// altitude read as being above somewhere rather than over a blank sheet.
+const DEFAULT_BASEMAP = 'relief';
 
 function applyBasemap(key, { persist = true } = {}) {
-  const map = BASEMAPS[key] ? key : 'sade';
+  const map = BASEMAPS[key] ? key : DEFAULT_BASEMAP;
   const config = BASEMAPS[map];
 
   viewer.imageryLayers.removeAll();
@@ -159,7 +163,7 @@ function buildBasemapSwitch() {
   syncBasemapSwitch();
 }
 
-applyBasemap(storedBasemap || 'sade');
+applyBasemap(storedBasemap || DEFAULT_BASEMAP);
 buildBasemapSwitch();
 
 viewer.scene.globe.enableLighting = false;
