@@ -99,6 +99,11 @@ Aynı ölçümde hız limiti de yeniden doğrulandı: `api.adsb.lol`'a aralıks�
 sorgu → **2'si 429**. Yani tek kaynak 12 dairenin tamamını taşıyamaz; bir
 sağlayıcı düştüğünde kapsama eksilir (`degraded: true`).
 
+Üçüncü kaynak ihtimali tükendiği için bu durumun **arayüzde söylenmesi**
+tercih edildi: `/api/states` yanıtındaki `degraded` bayrağı istemciye taşınır,
+durum rozetindeki nokta kehribara döner ve uçuş listesinin üstünde bir uyarı
+şeridi çıkar. Ayrıntı ve gerekçe: `DESIGN.md`.
+
 ### Neden OpenSky değil
 
 Proje OpenSky ile başlamıştı; iki bağımsız engel yüzünden bırakıldı:

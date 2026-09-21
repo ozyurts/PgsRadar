@@ -171,6 +171,11 @@ bildirimi) → yerde (iniş bildirimi) → yenileme (yeni bildirim yok, kart
   uçak ise 354° ile kuzeye — varışa kerteriz 174°, fark 180°. Bu çifte
   dayanarak ilerleme/varış hesaplayan her şey yön kontrolü yapmalı
   (`OFF_COURSE_DEGREES`, `src/track.js`).
+- **`hidden` özniteliği CSS'te display tanımlayan bir kuralı yenemez.** UA
+  stil sayfasındaki `[hidden] { display: none }` özgüllükte `.grid { display:
+  grid }`in altında kalır: element `hidden = true` olmasına rağmen ekranda
+  kalır. `src/track.css` başındaki `[hidden] { display: none !important; }`
+  bunun için var; yeni sayfa açılırsa aynı satır gerekir.
 - **Açı farkı formülünü test etmeden bırakma.** `Math.abs(((a-b+540)%360)-180)`
   zaten en küçük açıdır; başına `180 - …` eklemek işareti ters çevirir ve
   "uçak rotasında" ile "tam ters yönde" yer değiştirir. Bir kez oldu; üç

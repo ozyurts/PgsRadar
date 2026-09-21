@@ -145,6 +145,9 @@ const els = {
 let track = null;
 let timer = null;
 let routeResult = null;
+// Whether the last sweep came back short. Not persisted: it describes the
+// poll that just happened, not the flight.
+let coverageIncomplete = false;
 
 function save() {
   if (!track) return;
@@ -293,6 +296,13 @@ function airportSentence(port) {
   return port ? airportLabel(port) : null;
 }
 
+// An absent aircraft and an incomplete sweep look identical from here, and
+// only one of them is about the flight. Said in both places a flight can go
+// missing — waiting for it, and having lost it.
+const COVERAGE_LINE =
+  'Ayrıca bu taramada bazı bölgeler alınamadı: uçak kapsama dışında değil, ' +
+  'veri eksik gelmiş olabilir.';
+
 // ---------- Rendering ----------
 const BADGES = {
   bekleniyor: ['Bekleniyor', ''],
@@ -414,6 +424,7 @@ function renderBanner() {
       'ADS-B gönüllü alıcılara dayanır ve uçaklar yerde transponder’ını kapatır; ' +
         'kapsama boşluğu da iniş de aynı şekilde sessizleşir.'
     );
+    if (coverageIncomplete) lines.push(COVERAGE_LINE);
 
     b.replaceChildren(...lines.map((text) => {
       const p = document.createElement('p');
@@ -429,6 +440,7 @@ function renderBanner() {
       `${track.callsign} şu anda ADS-B verisinde görünmüyor.`,
       'Uçuş henüz kalkmamış, transponder’ı kapalı ya da kapsama alanının ' +
         'dışında olabilir. Takip açık — uçak göründüğü anda bu kart dolacak.',
+      ...(coverageIncomplete ? [COVERAGE_LINE] : []),
     ].map((text) => {
       const p = document.createElement('p');
       p.textContent = text;
@@ -652,7 +664,8 @@ function land(f, now) {
 
 async function poll() {
   try {
-    const flights = await fetchFleet({ prefix: CALLSIGN_PREFIX });
+    const { flights, degraded } = await fetchFleet({ prefix: CALLSIGN_PREFIX });
+    coverageIncomplete = degraded;
     apply(flights);
     render();
 
@@ -807,7 +820,7 @@ els.form.addEventListener('submit', (event) => {
 // per row on a page whose whole point is to be light.
 async function loadSuggestions() {
   try {
-    const flights = await fetchFleet({ prefix: CALLSIGN_PREFIX });
+    const { flights } = await fetchFleet({ prefix: CALLSIGN_PREFIX });
     const airborne = flights
       .filter((f) => !f.onGround)
       .sort((a, b) => a.callsign.localeCompare(b.callsign));

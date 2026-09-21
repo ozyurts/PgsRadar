@@ -431,6 +431,7 @@ const els = {
   panel: document.getElementById('panel'),
   scrim: document.getElementById('scrim'),
   modeSwitch: document.getElementById('modeSwitch'),
+  coverageNotice: document.getElementById('coverageNotice'),
 };
 
 const modeButtons = [...(els.modeSwitch?.querySelectorAll('button') ?? [])];
@@ -1097,8 +1098,8 @@ function applyDeepLink() {
 // ---------- Polling ----------
 async function poll() {
   try {
-    const data = await fetchFleet({ prefix: CALLSIGN_PREFIX });
-    flights = data;
+    const { flights: fetched, degraded } = await fetchFleet({ prefix: CALLSIGN_PREFIX });
+    flights = fetched;
     updateEntities();
     renderList();
     applyDeepLink();
@@ -1112,12 +1113,18 @@ async function poll() {
     const airborne = flights.length - grounded;
     // The counts are of everything the feed reported, not of what the layer
     // switch happens to be showing: the pill is the state of the fleet.
+    //
+    // When some region queries failed the feed is live but incomplete, and a
+    // short list would otherwise read as a complete one. The dot goes amber
+    // and the panel says so in words — the pill has no room for the sentence
+    // at phone width, and the sentence belongs next to the count anyway.
     setStatus(
-      'live',
+      degraded ? 'degraded' : 'live',
       grounded
         ? `${airborne} havada · ${grounded} yerde`
         : `${airborne} uçuş · canlı`
     );
+    if (els.coverageNotice) els.coverageNotice.hidden = !degraded;
     els.updated.textContent = 'Son güncelleme: ' + fmtTime();
   } catch (err) {
     console.error('OpenSky fetch failed:', err);

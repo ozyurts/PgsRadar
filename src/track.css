@@ -6,6 +6,11 @@
 
 * { box-sizing: border-box; }
 
+/* The `hidden` attribute is only a UA `display: none`, so any author rule that
+   sets display beats it — `.grid { display: grid }` kept the empty metric row
+   on screen while the code believed it had hidden it. */
+[hidden] { display: none !important; }
+
 html { height: 100%; }
 
 body.track {
@@ -257,7 +262,7 @@ button.quiet {
 .badge.warn {
   color: #fff;
   border-color: transparent;
-  background: #d08316;
+  background: var(--warn);
 }
 
 .note {
@@ -284,7 +289,7 @@ button.quiet {
   background: rgba(48, 176, 110, 0.14);
 }
 .banner.warn {
-  background: rgba(208, 131, 22, 0.14);
+  background: rgba(199, 119, 0, 0.13);
 }
 
 /* ---------- Route ---------- */
@@ -393,7 +398,7 @@ button.quiet {
   animation: pulse 2s infinite;
 }
 .status-dot.done { background: var(--good); }
-.status-dot.warn { background: #d08316; }
+.status-dot.warn { background: var(--warn); }
 .status-dot.error { background: #ff453a; }
 @keyframes pulse {
   0%, 100% { opacity: 1; }

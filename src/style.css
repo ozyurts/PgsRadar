@@ -137,6 +137,12 @@ body {
   box-shadow: 0 0 0 4px rgba(48, 176, 110, 0.18);
   animation: pulse 2s infinite;
 }
+/* Amber, and not pulsing: the feed is live but incomplete, and a pulsing dot
+   reads as "all good" at a glance. */
+.status-dot.degraded {
+  background: var(--warn);
+  box-shadow: 0 0 0 4px rgba(199, 119, 0, 0.16);
+}
 .status-dot.error {
   background: #ff453a;
 }
@@ -187,6 +193,18 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: var(--accent);
+}
+
+/* Directly above the list, because that is where a short list gets mistaken
+   for a complete one. */
+.panel-notice {
+  margin: 0;
+  padding: 9px 18px 10px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--warn);
+  background: rgba(199, 119, 0, 0.09);
+  border-bottom: 1px solid var(--border);
 }
 
 .flight-list {
