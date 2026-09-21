@@ -92,7 +92,17 @@ Bir şeyi kanıtlamak için geçici uç nokta açmak bu depoda kabul görmüş y
 3. **dosyayı sil, commit et, 404 döndüğünü teyit et.**
 
 Üçüncü adım atlanmaz. Bugüne kadar açılıp kapatılanlar: `/api/diag`,
-`/api/tile`, `/api/routeprobe`, `/api/csprobe`, `/api/asprobe`, `/api/aprobe`.
+`/api/tile`, `/api/routeprobe`, `/api/csprobe`, `/api/asprobe`, `/api/aprobe`,
+`/api/pcprobe`.
+
+Probe bir **açık vekil olmamalı**: `/api/pcprobe` host'u sabit bir izin
+listesiyle sınırlıyordu ve yalnızca gövdeyi dilimleyip arayabiliyordu.
+Site kendi kullanıcı ajanımızla okunur; 403 bir cevaptır, aşılacak bir engel
+değil (8. kural).
+
+**Sandbox `raw.githubusercontent.com`'a çıkabiliyor** ama `github.com` ve
+`api.github.com` proxy'den 400 alıyor. Yani GitHub'daki bir veri setinin
+*dosyası* buradan okunur, *ağaç listesi* okunamaz — ağaç için probe gerekir.
 
 ### 2. Arayüz yerel bir sahte sunucuyla, ekran görüntüsüyle doğrulanır
 

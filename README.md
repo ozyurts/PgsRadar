@@ -509,6 +509,27 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
   Saf sayısal olanlarda `PGT612 → PC612` dönüşümü kendimiz yapılabilir ama
   bu bir çıkarımdır, doğrulanmış veri değil — sayının sefer numarasıyla
   eşleşmesi yaygın bir pratiktir, kural değil.
+
+  **Harfli olanlar için eşleme aranıp bulunamadı** (21 Eylül 2026, fra1'den
+  ölçüldü). Örnek: `PGT30GF` yolcunun elinde **PC904**. "30GF" ile "904"
+  arasında hiçbir karakter ilişkisi yok; bu bir çevirme değil, arama.
+
+  | Aday | Sonuç |
+  | --- | --- |
+  | adsbdb ham yanıtı | `callsign_iata: "H930GF"` — eski IATA kodu + gövdenin düz kopyası |
+  | **Kaynağın kaynağı**: [VRS standing-data](https://github.com/vradarserver/standing-data) | Kolonlar `Callsign,Code,Number,AirlineCode,AirportCodes`; `PGT30GF,PGT,30GF,PGT,LOWW-LTFJ`. **"Number" sefer numarası değil, çağrı işaretinin gövdesi** |
+  | www.flypgs.com | `fra1`'den okunabiliyor, robots.txt izin veriyor (`Allow: /`, `Content-Signal: ai-input=yes`) — ama uçuş durumu aracı orada değil: `/en/flight-status` ve `/ucus-durumu` 200 ile "Sayfa Bulunamadı" |
+  | web.flypgs.com ve `www.flypgs.com/` | **403**, AkamaiGHost. Kurum politikası reddi; aşılmadı |
+
+  İkinci satır belirleyici: iki rota kaynağımızın beslendiği açık veri
+  setinde IATA sefer numarası diye bir **alan yok**. Dolayısıyla bu yoldan
+  hiç gelmeyecek; adsbdb'yi tekrar denemenin anlamı yok. Eşlemeyi veren
+  anahtarsız bir kaynak bulunamadı; kalan yol ücretli bir tarife API'si.
+
+  > Aynı veri seti 7.939 PGT çağrı işareti için kalkış/varış çifti tutuyor.
+  > İki kaynağımızın da bunun üzerine kurulmuş olması mümkün — öyleyse
+  > "iki bağımsız kaynak" çapraz doğrulaması sanıldığından zayıf demektir.
+  > Ölçülmedi, not edildi.
 - **Mobil**: 680px altında uçuş listesi, durum rozetine dokununca açılan bir
   alt panele dönüşür (bkz. aşağıdaki not).
 - **Bildirim sayfa kapalıyken gelmez.** `/takip` tarayıcı bildirimi kullanır;
