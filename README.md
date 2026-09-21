@@ -54,11 +54,21 @@ kullanılabilir değil:
 | Aday | Sonuç |
 | --- | --- |
 | `api.airplanes.live` | Her yol **403**: "Please contact us at contact@airplanes.live…" — onay kapısı. Ana site erişilebilir, yani IP engeli değil |
+| ↳ resmî belge | `airplanes.live/api-docs/` istemcide çizilen bir Stoplight sayfası; tanım `airplanes.live/openapi.yaml` |
 | `api.adsb.one` | **403**, Cloudflare "Attention Required" sayfası |
 | `adsb.one/api/v2/...` | 200 ama HTML — sitenin kendi arayüzü, API değil |
 | `api.theairtraffic.com` | Ad çözülmüyor |
 | `api.planes.live` | Ad çözülmüyor |
 | `api.adsb.lol` (kontrol) | **200**, 84 uçak — ölçümün kendisi çalışıyor |
+
+**airplanes.live'ın belgesi ayrıca okundu** (`openapi.yaml`, OpenAPI 3.1):
+sunucu `https://api.airplanes.live`, canlı sorgu uç noktası
+`/v2/point/{lat}/{lon}/{radius}`, yarıçap en fazla 250 nm — yani yukarıda
+denenen adres **doğru adres**. Belgede `security`, `securitySchemes`, API
+anahtarı veya token diye bir şey yok; belgelenen API açık. Buna rağmen canlı
+sunucu 403 döndürüyor, yani belge ile çalışan sistem birbirini tutmuyor:
+engel ya IP/ASN tabanlı (bulut sağlayıcıları) ya da belgeden yeni. Kullanım
+şartları sayfası da istemcide çizildiği için sunucu tarafından okunamıyor.
 
 Sonuç: anahtarsız üçüncü kaynak yok. airplanes.live e-postayla başvuruya açık
 ama bu, kaynağı kişisel bir onaya bağlar ve "anahtarsız kal" kuralından sapar;
