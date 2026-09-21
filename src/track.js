@@ -66,6 +66,31 @@ function distanceM(a, b) {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** Initial great-circle bearing from `a` to `b`, in degrees. */
+function bearingTo(a, b) {
+  if (!a || !b || a.lat == null || b.lat == null) return null;
+  const rad = Math.PI / 180;
+  const lat1 = a.lat * rad;
+  const lat2 = b.lat * rad;
+  const dLon = (b.lon - a.lon) * rad;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return (Math.atan2(y, x) / rad + 360) % 360;
+}
+
+/** Smallest angle between two headings, 0-180. */
+function angleBetween(a, b) {
+  return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+// How far off the bearing to the destination the aircraft may be pointed
+// before the progress bar stops being a claim anyone should believe. Generous
+// on purpose: a departure turning onto its SID, a hold or a vector is not a
+// contradiction, a reciprocal course is.
+const OFF_COURSE_DEGREES = 100;
+
 // ---------- Elements ----------
 const el = (id) => document.getElementById(id);
 const els = {
@@ -467,6 +492,28 @@ function renderRoute() {
   const total = distanceM(confirmed.origin, confirmed.destination);
   const remaining =
     f && track.phase === 'havada' ? distanceM(f, confirmed.destination) : null;
+
+  // Measured on live data: a callsign's confirmed pair belongs to one leg, and
+  // the return leg is often flown under the same one — PGT1883 was confirmed
+  // ESB → ECN while tracking 354°, i.e. away from Cyprus. The globe's dashed
+  // line already lives with that, but a progress bar and an arrival time are a
+  // much stronger claim, and here they would both have been nonsense. So they
+  // are withheld whenever the aircraft is not actually pointed at the airport.
+  const offCourse =
+    f && remaining != null
+      ? angleBetween(f.heading, bearingTo(f, confirmed.destination)) >
+        OFF_COURSE_DEGREES
+      : false;
+
+  if (offCourse) {
+    els.bar.hidden = true;
+    els.routeMeta.hidden = false;
+    els.routeMeta.textContent =
+      'Uçak şu anda bu varışa doğru ilerlemiyor, bu yüzden ilerleme ve varış ' +
+      'tahmini gösterilmiyor. Aynı sefer numarası dönüş bacağında da ' +
+      'kullanılıyor olabilir.';
+    return;
+  }
 
   if (total && remaining != null) {
     const done = Math.min(1, Math.max(0, 1 - remaining / total));

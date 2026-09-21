@@ -165,6 +165,16 @@ bildirimi) → yerde (iniş bildirimi) → yenileme (yeni bildirim yok, kart
   bildirim yalnızca ana ekrana eklenmiş PWA'da çalışır (manifest + ikon şart).
 - **`navigator.serviceWorker.ready` hiç kayıt yoksa asla resolve etmez.**
   Kayıt sonucu bir değişkende tutulur (`swRegistration`), `ready` beklenmez.
+- **Doğrulanmış rota, uçağın o anda uçtuğu bacak değildir.** `api/route.js`
+  çağrı işaretinin rotasını verir; aynı numara dönüşte de kullanılabiliyor.
+  Ölçüm (21 Eylül 2026, canlı veri): `PGT1883` iki kaynağa göre ESB → ECN,
+  uçak ise 354° ile kuzeye — varışa kerteriz 174°, fark 180°. Bu çifte
+  dayanarak ilerleme/varış hesaplayan her şey yön kontrolü yapmalı
+  (`OFF_COURSE_DEGREES`, `src/track.js`).
+- **Açı farkı formülünü test etmeden bırakma.** `Math.abs(((a-b+540)%360)-180)`
+  zaten en küçük açıdır; başına `180 - …` eklemek işareti ters çevirir ve
+  "uçak rotasında" ile "tam ters yönde" yer değiştirir. Bir kez oldu; üç
+  satırlık bir node kontrolüyle (`0/350 → 10`, `90/270 → 180`) yakalandı.
 
 ---
 

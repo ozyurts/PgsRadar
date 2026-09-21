@@ -408,6 +408,17 @@ görünür. Tahmin, kalan büyük daire mesafesinin **o anki yer hızına** böl
 ve ekranda böyle etiketlenir ("mevcut hıza göre"). Tarife, rüzgâr ve iniş
 profili yok; onlar ücretli bir uçuş planı API'si ister.
 
+**Ters bacak koruması.** Doğrulanmış bir rota, uçağın o anda uçtuğu bacak
+olmak zorunda değil: aynı sefer numarası dönüşte de kullanılabiliyor. Canlı
+veride ölçüldü (21 Eylül 2026): `PGT1883` için iki kaynak da **ESB → ECN**
+diyordu, ama uçak 37.16/33.23 noktasında **354°** ile kuzeye, yani Kıbrıs'tan
+*uzağa* uçuyordu — ECN'e olan kerteriz 174°, aradaki fark 180°. Bu yüzden
+uçağın gidiş yönü ile varışa olan kerteriz arasındaki açı 100°'yi geçerse
+ilerleme çubuğu ve varış tahmini gizlenir ve sebebi yazılır. Kalkış/varış
+çifti gösterilmeye devam eder — gizlenen, o çifte dayanan *tahmin*. Küredeki
+kesikli çizgi aynı durumu yaşıyor ama orada iddia daha zayıf; çubuk ve saat
+çok daha güçlü bir iddia.
+
 ### Küreyle bağ
 
 Karttaki "Haritada gör" düğmesi küreyi `/?ucus=PGT612` ile açar; küre o uçağı

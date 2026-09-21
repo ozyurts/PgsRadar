@@ -246,6 +246,19 @@ büyük daire ÷ o anki yer hızı. Bu 2. ilkenin sınırında duruyor: iki uç 
 sayının yanında **nasıl hesaplandığı** yazıyor — "mevcut hıza göre". Etiketsiz
 bir varış saati tarife gibi okunurdu, ki değil.
 
+Bir de sınırı aşan hâli var ve orada tahmin tamamen geri çekiliyor: uçak
+doğrulanmış varışa **doğru gitmiyorsa**. Canlı veride görüldü — `PGT1883`
+iki kaynağa göre ESB → ECN, ama uçak Kıbrıs'tan uzağa, kuzeye uçuyordu; aynı
+sefer numarası dönüş bacağında da kullanılıyor. O hâlde "kalan 250 km" de
+"17:45'te varır" da uydurma olurdu. Gidiş yönü ile varışa kerteriz arasındaki
+açı 100°'yi geçince çubuk ve saat kayboluyor, yerine neden kayboldukları
+yazılıyor. Havalimanı çifti duruyor: o iki kaynağın söylediği şey ve
+değişmedi. Gizlenen, ona dayanarak *bizim* çıkardığımız sayı.
+
+> Küre aynı durumda varışa kesikli bir çizgi çizmeye devam ediyor. Çelişki
+> değil, iddia gücü farkı: çizgi "doğrulanabilen varış şurası" diyor, ilerleme
+> çubuğu "yolun şu kadarı bitti" diyor. İkincisi ters bacakta yanlış.
+
 ### Giriş kutusu ve öneriler
 
 Kutu `PC612`, `612` ve `PGT480Q` kabul eder. Altında o an havadaki çağrı
