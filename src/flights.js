@@ -8,8 +8,13 @@
 const API_URL = '/api/states';
 
 /**
- * Fetch the currently airborne fleet for the given callsign prefix
- * (default: Pegasus's ICAO callsign "PGT").
+ * Fetch the fleet for the given callsign prefix (default: Pegasus's ICAO
+ * callsign "PGT").
+ *
+ * Returns `degraded` alongside the flights. The endpoint answers 200 even
+ * when some of its region queries failed, because a partial answer beats no
+ * answer — but the caller has to be told, or a short list reads as a complete
+ * one.
  */
 export async function fetchFleet({ prefix = 'PGT', signal } = {}) {
   const res = await fetch(`${API_URL}?prefix=${encodeURIComponent(prefix)}`, { signal });
@@ -23,7 +28,7 @@ export async function fetchFleet({ prefix = 'PGT', signal } = {}) {
   }
 
   const data = await res.json();
-  return data.flights || [];
+  return { flights: data.flights || [], degraded: Boolean(data.degraded) };
 }
 
 /**

@@ -171,6 +171,31 @@ Panel açıkken küre üzerindeki yazılar (altbilgi, atıf, zemin seçici) solu
 
 ---
 
+## Eksik kapsama söylenir
+
+Veri kaynakları 12 çakışık daireyle taranır ve bunların bir kısmı hız limiti
+yüzünden geri dönmeyebilir. Uç nokta böyle durumda da 200 döner — eksik cevap
+hiç cevapsız kalmaktan iyidir — ama `degraded: true` ekler.
+
+Bu, arayüzde iki yerde görünür:
+
+- **Durum rozetindeki nokta** yeşilden kehribara döner ve nabız animasyonu
+  durur. Atan yeşil bir nokta bir bakışta "her şey yolunda" der, oysa değil.
+- **Listenin hemen üstünde bir şerit:** "Kapsama eksik — bazı bölgeler
+  alınamadı, listede olmayan uçuşlar olabilir."
+
+Şerit bilinçli olarak sayacın yanındadır: yanlış anlaşılma orada doğuyor,
+çünkü "4" yazan bir sayaç tam liste sanılıyor. Haritanın köşesindeki bir
+uyarı, listeyi okuyup geçen birine hiç ulaşmaz.
+
+Rozete yazı eklenmedi; telefonda "20 havada · 1 yerde" zaten genişliği
+dolduruyor. Rozet rengi sinyali verir, cümleyi panel söyler.
+
+Renk kehribar, kırmızı değil: veri akıyor, yalnızca eksik. "Hata" demek
+yanlış olurdu. Kehribarın marka turuncusuna yakınlığı bilinen bir zayıflık —
+uyarı nadiren göründüğü ve panel içinde arka plan tonuyla ayrıştığı için
+kabul edildi.
+
 ## Söylenmeyenler
 
 Bilinçli olarak gösterilmeyen şeyler ve nedenleri:
