@@ -5,6 +5,17 @@ Pegasus Havayolları filosunun canlı ADS-B verisiyle konum takibini 3D bir kür
 Vite + CesiumJS ile yazıldı, Apple'ın ürün sayfalarındaki sade/cam-efektli
 estetikten ilham alıyor.
 
+## Belgeler
+
+| Dosya | Neyi anlatır |
+| --- | --- |
+| `README.md` | **Ne çalışıyor:** veri yolu, uç noktalar, kurulum, bilinen sınırlar |
+| `DESIGN.md` | **Neden böyle görünüyor:** ürün ve arayüz kararları, gerekçeleriyle |
+| `CLAUDE.md` | **Nasıl çalışılır:** kurallar, doğrulama yöntemi, bilinen tuzaklar |
+
+Üçü de kod kadar bakımlıdır; bir davranışı veya gerekçeyi değiştiren her
+değişiklik ilgili dosyayı aynı commit içinde günceller.
+
 ## Nasıl çalışıyor
 
 - **Veri**: `api/states.js` topluluk ADS-B verisini sunucu tarafında çekip
