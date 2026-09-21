@@ -19,6 +19,9 @@ function strip(html) {
     .trim();
 }
 
+let grepFor = null;
+let offset = 0;
+
 async function grab(url) {
   try {
     const res = await fetch(url, {
@@ -46,7 +49,16 @@ async function grab(url) {
         ...[...html.matchAll(/apiDescriptionUrl=["']([^"']+)["']/gi)].map((m) => m[1]),
         ...[...html.matchAll(/["'`]([^"'`\s]+\.(?:json|yaml|yml))["'`]/gi)].map((m) => m[1]),
       ])].slice(0, 40),
-      text: text.slice(0, 14000),
+      // ?grep= returns only the matching lines with context, so a long
+      // document can be read in slices without redeploying.
+      grep: grepFor
+        ? text.split('\n').flatMap((line, i, all) =>
+            new RegExp(grepFor, 'i').test(line)
+              ? [all.slice(Math.max(0, i - 2), i + 3).join(' | ')]
+              : []
+          ).slice(0, 60)
+        : undefined,
+      text: grepFor ? undefined : text.slice(offset, offset + 14000),
     };
   } catch (err) {
     return { url, error: String(err?.name || err) };
@@ -54,6 +66,10 @@ async function grab(url) {
 }
 
 export default async function handler(req, res) {
+  const one = (v) => (Array.isArray(v) ? v[0] : v);
+  grepFor = one(req.query?.grep) || null;
+  offset = Number(one(req.query?.offset)) || 0;
+
   const extra = req.query?.url;
   const targets = extra
     ? [String(Array.isArray(extra) ? extra[0] : extra)]
