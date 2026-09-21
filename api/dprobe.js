@@ -38,6 +38,14 @@ async function grab(url) {
       scripts: [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]),
       links: [...new Set([...html.matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1]))]
         .filter((h) => /api|doc/i.test(h)).slice(0, 40),
+      // Stoplight Elements renders an OpenAPI document client-side; the URL of
+      // that document is an attribute on its custom element, which strip()
+      // throws away. Pull it out of the raw HTML instead.
+      elements: [...html.matchAll(/<elements-api[\s\S]{0,600}?>/gi)].map((m) => m[0]),
+      specs: [...new Set([
+        ...[...html.matchAll(/apiDescriptionUrl=["']([^"']+)["']/gi)].map((m) => m[1]),
+        ...[...html.matchAll(/["'`]([^"'`\s]+\.(?:json|yaml|yml))["'`]/gi)].map((m) => m[1]),
+      ])].slice(0, 40),
       text: text.slice(0, 14000),
     };
   } catch (err) {
