@@ -42,16 +42,20 @@ export default async function handler(req, res) {
 
   // --- 1. Which URL shape answers? -----------------------------------------
   const candidates = [
+    // airplanes.live: measured, every path 403s behind an "email us first"
+    // gate. Kept as one line so the next run re-confirms rather than assumes.
     `https://api.airplanes.live/v2/point/${SAW[0]}/${SAW[1]}/${NM}`,
-    `https://api.airplanes.live/v2/lat/${SAW[0]}/lon/${SAW[1]}/dist/${NM}`,
-    `https://api.airplanes.live/v2/mil`,
-    `https://api.airplanes.live/v2/callsign/PGT770`,
-    `https://api.airplanes.live/v2/all`,
-    `https://api.airplanes.live/`,
-    // Does the refusal follow the host or the path? A plain page tells us
-    // whether the whole site refuses this IP or only the API does.
-    `https://airplanes.live/api/`,
+    // Other aggregators that publish the same readsb/tar1090 shape. The host
+    // names are guesses; that is what this probe is for.
+    `https://api.adsb.one/v2/lat/${SAW[0]}/lon/${SAW[1]}/dist/${NM}`,
+    `https://api.adsb.one/v2/point/${SAW[0]}/${SAW[1]}/${NM}`,
+    `https://api.theairtraffic.com/v2/lat/${SAW[0]}/lon/${SAW[1]}/dist/${NM}`,
+    `https://adsb.one/api/v2/lat/${SAW[0]}/lon/${SAW[1]}/dist/${NM}`,
+    `https://api.planes.live/v2/lat/${SAW[0]}/lon/${SAW[1]}/dist/${NM}`,
+    // Control: a source we already use, to prove the probe itself works.
+    `https://api.adsb.lol/v2/lat/${SAW[0]}/lon/${SAW[1]}/dist/${NM}`,
   ];
+
   out.discovery = await Promise.all(candidates.map((u) => probe(u, 5000)));
 
   const winner = out.discovery.find((r) => r.status === 200 && r.count != null);
