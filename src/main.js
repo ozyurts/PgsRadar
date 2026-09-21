@@ -496,6 +496,16 @@ function fmtTime(d = new Date()) {
 
 const ACCENT = Cesium.Color.fromCssColorString('#ff6a13');
 
+// One size for both layers. Ground traffic used to be drawn smaller, back
+// when it shared the map with the flights and had to stay out of their way;
+// now that only one group is shown at a time there is nothing to defer to,
+// and the difference only read as the aircraft being a lesser thing.
+const ICON_SIZE = 26;
+// Nearer aircraft sit larger in frame, which is most of what sells depth once
+// the camera is tilted. A fresh instance per billboard: nothing should be
+// able to change one layer's scaling by touching the other's.
+const iconScale = () => new Cesium.NearFarScalar(3.0e5, 1.3, 1.2e7, 0.6);
+
 function createAirEntities(icao24) {
   // Positions are callbacks rather than fixed values so every frame re-reads
   // the dead-reckoned estimate and the aircraft glides instead of stepping.
@@ -504,13 +514,11 @@ function createAirEntities(icao24) {
     position: new Cesium.CallbackProperty(() => airPosition(icao24), false),
     billboard: {
       image: PLANE_ICON,
-      width: 26,
-      height: 26,
+      width: ICON_SIZE,
+      height: ICON_SIZE,
       rotation: 0,
       alignedAxis: Cesium.Cartesian3.UNIT_Z,
-      // Nearer aircraft sit larger in frame, which is most of what sells
-      // depth once the camera is tilted.
-      scaleByDistance: new Cesium.NearFarScalar(3.0e5, 1.3, 1.2e7, 0.6),
+      scaleByDistance: iconScale(),
     },
   });
 
@@ -569,15 +577,12 @@ function createGroundEntity(icao24) {
     position: new Cesium.CallbackProperty(() => groundPosition(icao24), false),
     billboard: {
       image: PLANE_ICON_GROUND,
-      width: 15,
-      height: 15,
+      width: ICON_SIZE,
+      height: ICON_SIZE,
       rotation: 0,
       alignedAxis: Cesium.Cartesian3.UNIT_Z,
       heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-      // Barely scaled with distance, unlike the airborne icons: their size
-      // sells height, and these have none. Zoomed out they shrink away so the
-      // hub reads as one mark rather than a clump.
-      scaleByDistance: new Cesium.NearFarScalar(2.0e4, 1.6, 2.0e6, 0.45),
+      scaleByDistance: iconScale(),
     },
   });
 

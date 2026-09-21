@@ -79,8 +79,11 @@ görünür. Yalnızca varış işaretlenir: kalkış uçağın arkasında kalır
 
 ### Yerdeki uçaklar (ayrı katman)
 
-Apronda ve taksi yolundaki uçaklar kendi katmanlarında çizilir: küçük, gri,
-izsiz ve rota çizgisiz. **Aktif uçuşlar** panelinin başlığındaki
+Apronda ve taksi yolundaki uçaklar kendi katmanlarında çizilir: gri, izsiz
+ve rota çizgisiz, ama havadakilerle aynı boyutta. Başta daha küçüktüler —
+aynı haritayı uçuşlarla paylaşırken onların önüne geçmemeleri gerekiyordu;
+aynı anda tek grup gösterilmeye başlayınca geri çekilecek bir şey kalmadı ve
+boyut farkı yalnızca "bunlar daha önemsiz" gibi okunuyordu. **Aktif uçuşlar** panelinin başlığındaki
 **Havadakiler / Yerdekiler** anahtarı hangisinin gösterileceğini seçer;
 tercih `localStorage`'a yazılır.
 
