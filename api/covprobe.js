@@ -65,6 +65,25 @@ export default async function handler(req, res) {
         prefixFlights: mine
           .sort((x, y) => x.d - y.d)
           .map((x) => `${(x.a.flight || '').trim()}@${x.d.toFixed(0)}nm`),
+        // Exactly the fields normalise() in api/states.js reads, so a flight
+        // that reaches the probe but not the map can be traced to the field
+        // that dropped it rather than guessed at.
+        prefixRaw: mine.sort((x, y) => x.d - y.d).map((x) => ({
+          flight: (x.a.flight || '').trim(),
+          nm: +x.d.toFixed(0),
+          hex: x.a.hex,
+          r: x.a.r ?? null,
+          t: x.a.t ?? null,
+          alt_baro: x.a.alt_baro ?? null,
+          alt_geom: x.a.alt_geom ?? null,
+          gs: x.a.gs ?? null,
+          track: x.a.track ?? null,
+        })),
+        // Everything the feed holds inside the circle, with no prefix filter:
+        // tells apart "the fleet is not there" from "the receivers are not".
+        allFlights: withDist
+          .sort((x, y) => x.d - y.d)
+          .map((x) => `${(x.a.flight || '').trim() || '(adsız)'}@${x.d.toFixed(0)}`),
       };
     } catch (err) {
       out.sources[source.name] = { error: String(err?.message || err) };
