@@ -81,9 +81,22 @@ export default async function handler(req, res) {
         })),
         // Everything the feed holds inside the circle, with no prefix filter:
         // tells apart "the fleet is not there" from "the receivers are not".
+        // Altitude is the tell. Receivers hear line of sight, so a region with
+        // no local receiver still shows cruise traffic picked up hundreds of
+        // kilometres away — and nothing low. "Ground" here is the feed's own
+        // word for an aircraft on the surface.
         allFlights: withDist
           .sort((x, y) => x.d - y.d)
-          .map((x) => `${(x.a.flight || '').trim() || '(adsız)'}@${x.d.toFixed(0)}`),
+          .map((x) => {
+            const alt = x.a.alt_baro ?? x.a.alt_geom ?? '?';
+            return `${(x.a.flight || '').trim() || '(adsız)'}@${x.d.toFixed(0)}nm/${alt}`;
+          }),
+        onGround: withDist.filter(
+          (x) => String(x.a.alt_baro).toLowerCase() === 'ground'
+        ).length,
+        below10k: withDist.filter(
+          (x) => typeof x.a.alt_baro === 'number' && x.a.alt_baro < 10000
+        ).length,
       };
     } catch (err) {
       out.sources[source.name] = { error: String(err?.message || err) };
