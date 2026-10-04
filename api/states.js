@@ -45,6 +45,10 @@ const CIRCLES = [
   [38.75, 39.75],
 ];
 
+// Which circle covers the fleet's base. Both providers are asked for this one
+// (see handler), so moving the hub means moving this index with it.
+const HUB_CIRCLE = 0;
+
 const RADIUS_NM = 250;
 const CACHE_SECONDS = 60;
 const UPSTREAM_TIMEOUT_MS = 8000;
@@ -59,6 +63,10 @@ const SPACING_MS = 550;
 const RETRY_PAUSE_MS = 1500;
 const RETRY_SPACING_MS = 900;
 const USER_AGENT = 'pgsradar (+https://pgsradar.vercel.app)';
+
+// Stands in for a missing `seen_pos`: a record that does not say how old it
+// is loses to any record that does.
+const STALE_SECONDS = 1e9;
 
 const FT_TO_M = 0.3048;
 const KT_TO_MS = 0.514444;
@@ -161,7 +169,27 @@ function normalise(ac) {
     // A parked aircraft's baro_rate drifts with the pressure, not with the
     // aircraft; carrying it through would make the map climb the apron.
     verticalRateMs: onGround ? 0 : rateFtMin * FTMIN_TO_MS,
+    // How many seconds ago the feed last heard this position. Used only to
+    // settle duplicates (see remember) and stripped before the response goes
+    // out — the client has no use for it and it would just be one more field
+    // to keep honest.
+    seenPos: typeof ac.seen_pos === 'number' ? ac.seen_pos : STALE_SECONDS,
   };
+}
+
+/**
+ * Record an aircraft, keeping the fresher of two sightings.
+ *
+ * The hub circle is asked of both providers (see handler), so the same
+ * airframe arrives twice, from two different receiver networks. Last write
+ * wins would mean the map shows whichever request happened to finish last —
+ * which is a race, not a choice. The feed states how old each position is, so
+ * use that.
+ */
+function remember(byHex, flight) {
+  const previous = byHex.get(flight.icao24);
+  if (previous && previous.seenPos <= flight.seenPos) return;
+  byHex.set(flight.icao24, flight);
 }
 
 async function queryCircle(base, lat, lon) {
@@ -190,7 +218,7 @@ async function sweep(source, circles, prefix, byHex) {
         const flight = normalise(ac);
         if (!flight) continue;
         if (!flight.callsign.toUpperCase().startsWith(prefix)) continue;
-        byHex.set(flight.icao24, flight);
+        remember(byHex, flight);
       }
     } catch (err) {
       missed.push({ circle: circles[i], triedSource: source.name, reason: err.message });
@@ -209,15 +237,33 @@ export default async function handler(req, res) {
 
   // Split the circles between the providers so neither sees the full rate,
   // and run the two sweeps concurrently — the limits are per provider.
+  //
+  // The hub circle is the exception: it goes to both. The two providers are
+  // separate receiver networks and they do not see the same aircraft. Measured
+  // at one instant on 4 October 2026 over this very circle: adsb.lol reported
+  // 8 PGT flights, adsb.fi reported 12; within 30nm of the hub itself, 10
+  // aircraft against 13. Asking only one of them throws away whatever the
+  // other hears, and nowhere does that cost more than over the airport the
+  // fleet departs from. One extra request buys the union.
   const [primary, secondary] = SOURCES;
+  const hub = CIRCLES[HUB_CIRCLE];
   const [missedA, missedB] = await Promise.all([
     sweep(primary, CIRCLES.filter((_, i) => i % 2 === 0), prefix, byHex),
-    sweep(secondary, CIRCLES.filter((_, i) => i % 2 === 1), prefix, byHex),
+    sweep(secondary, [hub, ...CIRCLES.filter((_, i) => i % 2 === 1)], prefix, byHex),
   ]);
 
   // Anything one provider refused, give the other a chance at.
+  //
+  // The hub is the exception again: it went to both, so one failure there is
+  // already covered by the other sweep and retrying would spend a request on
+  // data we hold. Only a double failure earns a third attempt, and only one.
   const stillMissing = [];
-  const retries = [...missedA, ...missedB];
+  const all = [...missedA, ...missedB];
+  const hubMisses = all.filter((m) => m.circle === hub);
+  const retries = [
+    ...all.filter((m) => m.circle !== hub),
+    ...(hubMisses.length === 2 ? [hubMisses[0]] : []),
+  ];
 
   if (retries.length) await sleep(RETRY_PAUSE_MS);
 
@@ -230,7 +276,7 @@ export default async function handler(req, res) {
         const flight = normalise(ac);
         if (!flight) continue;
         if (!flight.callsign.toUpperCase().startsWith(prefix)) continue;
-        byHex.set(flight.icao24, flight);
+        remember(byHex, flight);
       }
     } catch (err) {
       stillMissing.push(
@@ -239,7 +285,9 @@ export default async function handler(req, res) {
     }
   }
 
-  if (stillMissing.length === CIRCLES.length) {
+  // One more query than there are circles now goes out, so the "everything
+  // failed" test counts queries, not circles.
+  if (stillMissing.length >= CIRCLES.length + 1) {
     console.error('Every circle failed:', stillMissing.join(' | '));
     res.status(502).json({ error: 'Veri kaynaklarına ulaşılamadı' });
     return;
@@ -256,6 +304,9 @@ export default async function handler(req, res) {
     time: Math.floor(Date.now() / 1000),
     sources: SOURCES.map((s) => s.name),
     degraded: stillMissing.length > 0,
-    flights: [...byHex.values()],
+    // seenPos settles duplicates on the way in and has no meaning on the way
+    // out; carrying it would invite the client to read it as "data age", which
+    // it is not — it is the age of one provider's last hearing.
+    flights: [...byHex.values()].map(({ seenPos, ...flight }) => flight),
   });
 }

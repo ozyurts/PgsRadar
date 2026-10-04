@@ -57,6 +57,29 @@ kısmını düşürüyordu ve düşen her daire haritada delik demekti. Bir kıs
 başarısız olursa yanıt `degraded: true` ile işaretlenir ve başarısız koordinatlar
 loglanır.
 
+#### Üs dairesi ikisine birden sorulur
+
+Daireler normalde sağlayıcılar arasında paylaştırılır (tek numaralılar birine,
+çiftler diğerine) — amaç hız limitini bölmek. **Üs dairesi** (`HUB_CIRCLE`,
+Türkiye'yi örten `[39.5, 32.0]`) bunun istisnası: ikisine birden sorulur ve
+sonuç `hex` üzerinden birleştirilir.
+
+Gerekçe ölçüldü (4 Ekim 2026, tek an, aynı daire): adsb.lol **8** PGT uçuşu,
+adsb.fi **12** bildirdi; üssün 30 nm'si içinde 10 uçağa karşı 13. İki sağlayıcı
+iki ayrı alıcı ağı ve aynı uçakları görmüyorlar. Tek birine sormak, diğerinin
+duyduğu her şeyi çöpe atmak demek — ve bunun en pahalı olduğu yer filonun
+kalktığı havalimanı. Bedeli üst kaynağa **bir ek istek** (süpürme başına 13
+yerine 14).
+
+Aynı uçak iki ağdan birden gelince **taze sabit kazanır**: beslemenin kendi
+`seen_pos` alanı (konumun kaç saniye önce duyulduğu) karşılaştırılır. Hangi
+isteğin önce bittiğine bakmak bir yarış olurdu, tercih değil. Bu alan yalnızca
+birleştirme için taşınır, yanıttan silinir — istemcide "veri yaşı" diye
+okunmasın diye; o, *bir* sağlayıcının son duyuşunun yaşı.
+
+Üs dairesi tek sağlayıcıda düşerse tekrar denenmez: veri zaten diğerinden
+geldi. Yalnızca ikisinde birden düşerse bir kez yeniden denenir.
+
 ### Üçüncü bir kaynak denendi, bulunamadı
 
 Şu an iki kaynak var ve biri kapanırsa diğeri devralıyor. Üçüncü bir anahtarsız
@@ -327,7 +350,8 @@ kalan ve hâlâ isabetli bir tercih: veri kaynakları Avrupa'da, gecikme düşü
 
 Tüm ziyaretçiler tek bir çıkış IP'sini paylaşır. Bunu ayakta tutan şey edge
 cache'idir: üst kaynağa giden istek sayısı ziyaretçi sayısıyla değil, **izlenen
-farklı `CACHE_SECONDS` penceresi sayısıyla** orantılıdır. 60 saniyelik cache ile
+farklı `CACHE_SECONDS` penceresi sayısıyla** orantılıdır (pencere başına 14
+istek: 13 daire + üssün ikinci sorgusu). 60 saniyelik cache ile
 10 kişi de 1 kişi de izlese dakikada tek bir tarama yapılır; kimse izlemiyorken
 hiç istek gitmez. Trafik artarsa `api/states.js` içindeki `CACHE_SECONDS`
 değerini büyütün.
