@@ -186,6 +186,18 @@ bildirimi) → yerde (iniş bildirimi) → yenileme (yeni bildirim yok, kart
   grid }`in altında kalır: element `hidden = true` olmasına rağmen ekranda
   kalır. `src/track.css` başındaki `[hidden] { display: none !important; }`
   bunun için var; yeni sayfa açılırsa aynı satır gerekir.
+- **Kapsamayı haritaya bakarak değil hesaplayarak kontrol et.** 12 daire
+  Türkiye'yi örtüyor *görünüyordu*; tabloya karşı ölçülünce 18 Türk
+  havalimanının hiçbir dairenin içinde olmadığı çıktı (4 Ekim 2026). Daire
+  merkezi eklerken/oynatırken her havalimanının en yakın merkeze haversine
+  uzaklığı `RADIUS_NM` altında mı diye bakılır; `lib/airports.js` tablosu bu
+  kontrol için zaten elde.
+- **"Uçuş görünmüyor" önce alıcı yoğunluğudur, daire değil.** İstanbul
+  ölçümü: SAW merkezli 30 nm'de yerde **0** uçak, Viyana'da aynı anda 5.
+  Ayırt eden şey sayı değil **irtifa dağılımı**: yerel alıcısı olmayan
+  bölgede yalnızca seyir irtifası görünür. Bir bölge için şikayet gelirse
+  önce o bölgenin alçak/yerdeki uçak sayısına bakılır, daire geometrisine
+  değil.
 - **Açı farkı formülünü test etmeden bırakma.** `Math.abs(((a-b+540)%360)-180)`
   zaten en küçük açıdır; başına `180 - …` eklemek işareti ters çevirir ve
   "uçak rotasında" ile "tam ters yönde" yer değiştirir. Bir kez oldu; üç

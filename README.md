@@ -48,7 +48,7 @@ Veri **sunucu tarafından** çekilir (`api/states.js`), tarayıcıdan değil.
 Kaynak [adsb.lol](https://adsb.lol), yedeği [adsb.fi](https://adsb.fi) — ikisi de
 topluluk ADS-B toplayıcısı, anahtar gerektirmiyor ve Vercel'in `fra1` bölgesinden
 50-80 ms'de yanıt veriyor. API tek sorguda bir nokta etrafında en fazla 250 deniz
-mili veriyor, bu yüzden Pegasus ağı örtüşen 12 daireyle taranıp sonuçlar `hex`
+mili veriyor, bu yüzden Pegasus ağı örtüşen 13 daireyle taranıp sonuçlar `hex`
 üzerinden tekilleştiriliyor. Çağrı işareti filtresi ve SI birimine çevirme de
 sunucuda yapılır; istemciye yalnızca ilgili uçuşlar iner.
 
@@ -96,7 +96,7 @@ Sonuç: anahtarsız üçüncü kaynak yok, ve airplanes.live ücretli/katkı ko�
 bile bu mimariye uymuyor.
 
 Aynı ölçümde hız limiti de yeniden doğrulandı: `api.adsb.lol`'a aralıksız 6
-sorgu → **2'si 429**. Yani tek kaynak 12 dairenin tamamını taşıyamaz; bir
+sorgu → **2'si 429**. Yani tek kaynak dairelerin tamamını taşıyamaz; bir
 sağlayıcı düştüğünde kapsama eksilir (`degraded: true`).
 
 Üçüncü kaynak ihtimali tükendiği için bu durumun **arayüzde söylenmesi**
@@ -486,9 +486,32 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
   eğildiğinde küçük sapmalar olabilir.
 - **Kapsama**: Daireler Pegasus'un tarifeli ağını kapsar; bunun dışına çıkan
   bir uçuş listede görünmez. Kapsamı genişletmek için `api/states.js`
-  içindeki `CIRCLES` listesine merkez ekleyin.
+  içindeki `CIRCLES` listesine merkez ekleyin. Eklemeden önce **hesaplayın**:
+  bir havalimanının en yakın merkeze uzaklığı `RADIUS_NM`'in altında kalmalı.
+  Haritaya bakarak kestirmek bu enlemde yanıltıyor — 4 Ekim 2026'da tabloya
+  karşı ölçüldüğünde 12 dairenin **18 Türk havalimanını** (Diyarbakır,
+  Trabzon, Gaziantep, Şanlıurfa, Erzurum, Malatya, Mardin, Batman, Elazığ,
+  Van hariç tüm güneydoğu ve Karadeniz) dışarıda bıraktığı görüldü. Doğu
+  Anadolu dairesi (`[38.75, 39.75]`) bunun üzerine eklendi; 66 LT**
+  havalimanının tamamı artık kapsamada. En dar pay Bodrum'da, 10 km.
 - **Yer kapsaması**: ADS-B kapsaması topluluk alıcılarına dayanır; alıcı
-  yoğunluğunun düşük olduğu bölgelerde uçuşlar eksik görünebilir.
+  yoğunluğunun düşük olduğu bölgelerde uçuşlar eksik görünebilir. **İstanbul
+  bu bölgelerden biri** ve bu, dairelerle ilgili değil — ölçüm (4 Ekim 2026,
+  00:33 TSİ, SAW merkezli 30 nm):
+
+  | | SAW + İST | Viyana (kontrol) |
+  | --- | --- | --- |
+  | Toplam uçak | 10 (adsb.lol) / 13 (adsb.fi) | 14 / 14 |
+  | **Yerde** | **0** | **5** (üçü apronda) |
+  | 10.000 ft altı | 3 / 6 | 4 |
+
+  Viyana'da aynı anda apronda duran uçaklar görünürken İstanbul'da yerde tek
+  uçak yok ve havalimanlarının üstündeki trafiğin çoğu 36–38 bin fitte, yani
+  yüzlerce kilometre öteden duyulan **üstten geçen** uçaklar. Alıcılar görüş
+  hattıyla duyar: yerel alıcısı olmayan bir bölgede yüksek irtifa görünür,
+  apron görünmez. SAW'dan kalkan bir uçak ancak ~13.000 ft'e çıktığında
+  beslemeye düşüyor. Bunu kodla çözmenin yolu yok; İstanbul'a alıcı
+  kurulması gerekir.
 - **Havalimanı eşleşmesi**: En yakın havalimanı kuralı, uçak gerçekten bir
   havalimanındayken doğru çalışır; 8 km yarıçap içinde kalan başka bir
   pist yoksa. Tabloda küçük havaalanları yok, dolayısıyla bir uçak çok

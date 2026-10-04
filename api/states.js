@@ -27,10 +27,22 @@ const SOURCES = [
 // Overlapping 250nm circles covering the Pegasus route network: Turkey and
 // the Aegean, the Balkans, central and western Europe, North Africa, the
 // Levant, the Gulf, the Caucasus and Central Asia.
+//
+// The last one, eastern Anatolia, was added after the coverage was actually
+// measured against the airport table rather than eyeballed on a map: the
+// original twelve left 18 Turkish airports outside every circle — the whole
+// south-east and Black Sea coast, Diyarbakır, Trabzon, Gaziantep, Şanlıurfa,
+// Erzurum, Malatya among them — all of which Pegasus serves daily. A flight
+// to any of them simply vanished from the map partway there. One circle at
+// [38.75, 39.75] closes all 18 with 177km to spare, and picks up Batumi and
+// Kutaisi on the way. Check it with the same arithmetic before moving any
+// centre: distance from an airport to the nearest centre must stay under
+// RADIUS_NM, and a map drawn in a browser lies about that at this latitude.
 const CIRCLES = [
   [39.5, 32.0], [41.5, 22.0], [47.0, 14.0], [50.5, 5.0],
   [54.0, -2.0], [42.0, 3.0], [36.0, 10.0], [33.0, 35.0],
   [28.0, 47.0], [40.0, 48.0], [43.0, 68.0], [55.0, 37.0],
+  [38.75, 39.75],
 ];
 
 const RADIUS_NM = 250;
