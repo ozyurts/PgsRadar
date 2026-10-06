@@ -43,7 +43,7 @@ durur ve eşlemenin yapıldığı, nerede tuttuğu, nerede tutmadığı açıkç
 
 **6. Ziyaretçinin tercihi kazanır, ama her tercih kalıcı değildir.**
 Zemin bir beğenidir, saklanır. Liste kipi eline alıp bıraktığın bir
-mercektir, saklanmaz. Uydu zemini bir yer uçağı seçildiğinde *ödünç alınır*
+mercektir, saklanmaz. Havayolu da saklanmaz; adrese yazılır (aşağıda). Uydu zemini bir yer uçağı seçildiğinde *ödünç alınır*
 ve geri verilir; elle zemin seçmek ödüncü bitirir.
 
 ---
@@ -123,6 +123,41 @@ sabitlenmiş.
 > geri çekilecek bir şey kalmadı ve boyut farkı yalnızca "bunlar daha
 > önemsiz" gibi okunuyordu. Renk farkı kaldı; o hangi listede olunduğunu
 > söylüyor.
+
+---
+
+## Havayolu anahtarı
+
+Üst çubuğun solunda **Pegasus / Smartwings**. Seçilen havayolu küreyi,
+listeyi ve sayaçları birlikte değiştirir; bu yüzden listenin içinde değil,
+sayfa genelindeki kontrollerin yanında. Durum rozetinin hemen yanına
+konmadı: bitişik dursa rozetin bir parçası gibi okunuyordu.
+
+- **Varsayılan Pegasus, ve her ziyaret Pegasus'la başlar.** Seçim
+  `localStorage`'a yazılmaz — liste kipiyle aynı gerekçe: bir kez
+  Smartwings'e bakmış olmak, sitenin bir hafta sonra başka bir filoyla
+  açılması demek olmamalı.
+- **Ama adrese yazılır** (`?havayolu=smartwings`; Pegasus'ta parametre
+  silinir). Paylaşılan bir bağlantı, paylaşanın baktığı şeyi açar; yenileme
+  de seçimi korur. Sayfa başlığı da seçime göre değişir.
+- **Geçişte ekrandaki her şey bir anda gider** — seçim, uçaklar, izler,
+  sayaçlar; durum "Bağlanıyor…"a döner. Eskisini yeni yanıt gelene kadar
+  bırakmak, bir an için bir havayolunun listesini diğerinin adı altında
+  gösterirdi. Aynı sebeple, geçişten önce yola çıkmış bir yanıt gelince
+  atılır (sahte sunucuda 2,5 sn geciktirilmiş Pegasus yanıtıyla doğrulandı).
+- **Liste kipi korunur.** Yerdekilere bakarken havayolu değiştirmek,
+  öbür havayolunun yerdekilerini gösterir; iki soru birbirinden bağımsız.
+- **Vurgu rengi değişmez.** Turuncu bu sitenin rengi, Pegasus'un markası
+  olarak değil "izlenen uçak" anlamında kullanılıyor; Smartwings için ayrı
+  bir palet iki görünümü ayrı uygulamalar gibi gösterirdi. Seçili düğme,
+  turuncunun soluk tonu üstünde koyu yazıdır — dolgulu turuncu üstünde beyaz
+  yazı bu boyutta 3:1'in altında kalıyor.
+- **Takip sayfası yalnızca Pegasus.** Biniş kartındaki numarayı çağrı
+  işaretine çeviren eşleme Pegasus'a özgü (`PC612 → PGT612`); Smartwings
+  için aynısı ölçülmeden yazılmaz.
+
+Telefonda üç hap tek satıra sığmıyor (ölçüldü: 390 px'te durum rozeti üç
+satıra kırıldı). Anahtar orada ikinci satıra iner, hiçbir şey daralmaz.
 
 ---
 

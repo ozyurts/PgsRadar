@@ -4,13 +4,12 @@ import './style.css';
 import { fetchFleet, fetchRoute } from './flights.js';
 import { portCode, portLabel, portTitle, airportLabel } from './ports.js';
 import { parseFlightNumber } from './callsign.js';
+import { AIRLINES, DEFAULT_AIRLINE } from '../lib/airlines.js';
 
 // No Cesium ion account required: we skip ion imagery/terrain entirely
 // and use a free, token-less basemap + a flat ellipsoid terrain model.
 Cesium.Ion.defaultAccessToken = undefined;
 
-// `||` here is deliberate: a blank env var falls back to the default.
-const CALLSIGN_PREFIX = import.meta.env.VITE_CALLSIGN_PREFIX?.trim() || 'PGT';
 const POLL_INTERVAL_MS = Number(import.meta.env.VITE_POLL_INTERVAL_MS) || 30000;
 
 // ---------- Viewer ----------
@@ -262,6 +261,21 @@ try {
   // Private browsing refuses writes; the stale key is harmless either way.
 }
 
+// ---------- Airline ----------
+// Which fleet the globe shows. Pegasus is where every visit starts, for the
+// same reason the list mode is not remembered: a choice made once should not
+// leave the site opening on someone else's fleet a week later with no obvious
+// reason why. The choice does go into the address (?havayolu=smartwings), so
+// a link someone shares opens on what they were looking at.
+const AIRLINE_PARAM = 'havayolu';
+
+function airlineFromUrl() {
+  const key = new URLSearchParams(location.search).get(AIRLINE_PARAM)?.toLowerCase();
+  return key && Object.hasOwn(AIRLINES, key) ? key : DEFAULT_AIRLINE;
+}
+
+let airline = airlineFromUrl();
+
 function visibleFlights() {
   const wantGround = listMode === 'ground';
   return flights.filter((f) => Boolean(f.onGround) === wantGround);
@@ -433,6 +447,55 @@ const els = {
   modeSwitch: document.getElementById('modeSwitch'),
   coverageNotice: document.getElementById('coverageNotice'),
 };
+
+let syncAirlineSwitch = () => {};
+
+function buildAirlineSwitch() {
+  const host = document.getElementById('airlineSwitch');
+  if (!host) return;
+
+  const buttons = Object.entries(AIRLINES).map(([key, config]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = config.label;
+    button.addEventListener('click', () => setAirline(key));
+    host.append(button);
+    return [key, button];
+  });
+
+  syncAirlineSwitch = () => {
+    for (const [key, button] of buttons) {
+      button.setAttribute('aria-pressed', String(key === airline));
+    }
+    document.title = `PGS Radar — ${AIRLINES[airline].label} Filo Takibi`;
+  };
+  syncAirlineSwitch();
+}
+
+/**
+ * Switch fleets. Everything on screen belongs to the old one, so it all goes
+ * at once — selection, aircraft, trails, counts — rather than lingering until
+ * the next answer lands and briefly showing one airline's list under the
+ * other's name.
+ */
+function setAirline(key) {
+  if (key === airline || !Object.hasOwn(AIRLINES, key)) return;
+  airline = key;
+
+  const url = new URL(location.href);
+  if (key === DEFAULT_AIRLINE) url.searchParams.delete(AIRLINE_PARAM);
+  else url.searchParams.set(AIRLINE_PARAM, key);
+  history.replaceState(null, '', url);
+
+  syncAirlineSwitch();
+  clearSelection();
+  flights = [];
+  updateEntities();
+  renderList();
+  if (els.coverageNotice) els.coverageNotice.hidden = true;
+  setStatus('', 'Bağlanıyor…');
+  poll();
+}
 
 const modeButtons = [...(els.modeSwitch?.querySelectorAll('button') ?? [])];
 
@@ -700,12 +763,14 @@ function renderList() {
   els.count.textContent = rows.length;
 
   if (rows.length === 0) {
+    const { label, prefixes } = AIRLINES[airline];
+    const who = `${label} (${prefixes.join(', ')})`;
     els.list.replaceChildren(Object.assign(document.createElement('div'), {
       className: 'empty-state',
       textContent:
         listMode === 'ground'
-          ? `Şu anda yerde ${CALLSIGN_PREFIX} çağrı işaretli uçak görünmüyor. Park eden uçaklar çoğunlukla transponder'ını kapatır.`
-          : `Şu anda havada ${CALLSIGN_PREFIX} çağrı işaretli uçuş görünmüyor, ya da veri henüz gelmedi.`,
+          ? `Şu anda yerde ${who} uçağı görünmüyor. Park eden uçaklar çoğunlukla transponder'ını kapatır.`
+          : `Şu anda havada ${who} uçuşu görünmüyor, ya da veri henüz gelmedi.`,
     }));
     return;
   }
@@ -1097,8 +1162,13 @@ function applyDeepLink() {
 
 // ---------- Polling ----------
 async function poll() {
+  // A switch can happen while a request is out. Its answer is for the fleet
+  // that is no longer on screen, and drawing it would put the old airline
+  // back under the new one's name until the next poll.
+  const asked = airline;
   try {
-    const { flights: fetched, degraded } = await fetchFleet({ prefix: CALLSIGN_PREFIX });
+    const { flights: fetched, degraded } = await fetchFleet({ airline: asked });
+    if (asked !== airline) return;
     flights = fetched;
     updateEntities();
     renderList();
@@ -1127,7 +1197,8 @@ async function poll() {
     if (els.coverageNotice) els.coverageNotice.hidden = !degraded;
     els.updated.textContent = 'Son güncelleme: ' + fmtTime();
   } catch (err) {
-    console.error('OpenSky fetch failed:', err);
+    if (asked !== airline) return;
+    console.error('Fleet fetch failed:', err);
     setStatus('error', 'Veri alınamadı');
     // Surfaced on screen because the status pill alone says nothing useful,
     // and on phones there are no devtools to read the console with.
@@ -1135,5 +1206,6 @@ async function poll() {
   }
 }
 
+buildAirlineSwitch();
 poll();
 setInterval(poll, POLL_INTERVAL_MS);

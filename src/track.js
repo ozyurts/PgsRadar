@@ -15,10 +15,13 @@
 
 import './track.css';
 import { fetchFleet, fetchRoute } from './flights.js';
-import { parseFlightNumber, iataNumber } from './callsign.js';
+import { parseFlightNumber, iataNumber, ICAO_PREFIX } from './callsign.js';
 import { portCode, portLabel, portTitle, airportLabel } from './ports.js';
 
-const CALLSIGN_PREFIX = import.meta.env.VITE_CALLSIGN_PREFIX?.trim() || 'PGT';
+// The tracker is Pegasus-only: callsign.js turns a boarding pass into a PGT
+// callsign and nothing else. It asks for the fleet by the same key the globe
+// uses for Pegasus, so the two pages keep sharing one edge cache entry.
+const AIRLINE = 'pegasus';
 const POLL_INTERVAL_MS = Number(import.meta.env.VITE_POLL_INTERVAL_MS) || 30000;
 
 const PARAM = 'ucus';
@@ -333,7 +336,7 @@ function render() {
     els.note.hidden = false;
     els.note.textContent =
       `${track.typed} için ${track.callsign} çağrı işareti arandı. Sayısal seferlerde bu eşleşme tutar; ` +
-      `harfli seferlerin (${CALLSIGN_PREFIX}480Q gibi) IATA karşılığı yoktur, onlar çağrı işaretiyle aranır.`;
+      `harfli seferlerin (${ICAO_PREFIX}480Q gibi) IATA karşılığı yoktur, onlar çağrı işaretiyle aranır.`;
   } else {
     els.note.hidden = true;
   }
@@ -664,7 +667,7 @@ function land(f, now) {
 
 async function poll() {
   try {
-    const { flights, degraded } = await fetchFleet({ prefix: CALLSIGN_PREFIX });
+    const { flights, degraded } = await fetchFleet({ airline: AIRLINE });
     coverageIncomplete = degraded;
     apply(flights);
     render();
@@ -820,7 +823,7 @@ els.form.addEventListener('submit', (event) => {
 // per row on a page whose whole point is to be light.
 async function loadSuggestions() {
   try {
-    const { flights } = await fetchFleet({ prefix: CALLSIGN_PREFIX });
+    const { flights } = await fetchFleet({ airline: AIRLINE });
     const airborne = flights
       .filter((f) => !f.onGround)
       .sort((a, b) => a.callsign.localeCompare(b.callsign));

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>PGS Radar — Pegasus Filo Takibi</title>
-  <meta name="description" content="Pegasus Havayolları filosunun canlı ADS-B verisiyle konum takibi." />
+  <meta name="description" content="Pegasus ve Smartwings filolarının canlı ADS-B verisiyle konum takibi." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>" />
 </head>
 <body>
@@ -12,6 +12,7 @@
     <div id="cesiumContainer"></div>
 
     <header class="topbar">
+      <div class="airline-switch" id="airlineSwitch" role="group" aria-label="Havayolu"></div>
       <a class="track-link" href="/takip">Uçuş takibi</a>
       <button class="status" id="statusPill" type="button" aria-expanded="false" aria-controls="panel">
         <span class="status-dot" id="statusDot"></span>

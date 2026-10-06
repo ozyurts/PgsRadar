@@ -18,6 +18,7 @@
 // filter cannot be made honest at this level — see normalise().
 
 import { nearestAirport } from '../lib/airports.js';
+import { AIRLINES, DEFAULT_AIRLINE } from '../lib/airlines.js';
 
 const SOURCES = [
   { name: 'adsb.lol', base: 'https://api.adsb.lol/v2' },
@@ -45,9 +46,18 @@ const CIRCLES = [
   [38.75, 39.75],
 ];
 
-// Which circle covers the fleet's base. Both providers are asked for this one
-// (see handler), so moving the hub means moving this index with it.
-const HUB_CIRCLE = 0;
+// The circles above follow Pegasus's network, and they were never meant to
+// cover Smartwings's: measured against the same arithmetic, they left out the
+// Canary Islands, Madeira, the Red Sea resorts, Crete and Rhodes, Andalusia
+// and the Algarve, and the Polish bases — most of what a Prague charter
+// carrier flies. Each airline therefore adds its own circles on top
+// (`extraCircles` in lib/airlines.js), swept only when that airline is asked
+// for. Pegasus's sweep stays exactly what it was; Smartwings's costs five
+// more queries, under its own cache entry.
+//
+// Which circle covers the fleet's base is per airline too (`hubCircle`).
+// Both providers are asked for that one (see handler), so moving a centre
+// means checking that index with it.
 
 const RADIUS_NM = 250;
 const CACHE_SECONDS = 60;
@@ -192,6 +202,41 @@ function remember(byHex, flight) {
   byHex.set(flight.icao24, flight);
 }
 
+function matches(flight, prefixes) {
+  const callsign = flight.callsign.toUpperCase();
+  return prefixes.some((prefix) => callsign.startsWith(prefix));
+}
+
+/**
+ * Which callsigns to keep, and where to look for them.
+ *
+ * `?airline=` is what the page sends. `?prefix=` predates it and is kept so an
+ * old link still answers; it gets Pegasus's circles, which is what it always
+ * had. An unknown airline falls back to the default rather than erroring —
+ * the same leniency the prefix check always had.
+ */
+function scopeOf(query) {
+  const first = (value) => (Array.isArray(value) ? value[0] : value);
+
+  const rawPrefix = first(query?.prefix);
+  if (rawPrefix != null && query?.airline == null) {
+    const candidate = String(rawPrefix).toUpperCase();
+    const prefix = /^[A-Z0-9]{1,8}$/.test(candidate) ? candidate : 'PGT';
+    return { prefixes: [prefix], ...circlesFor(AIRLINES[DEFAULT_AIRLINE]) };
+  }
+
+  const key = String(first(query?.airline) ?? DEFAULT_AIRLINE).toLowerCase();
+  const airline = AIRLINES[key] ?? AIRLINES[DEFAULT_AIRLINE];
+  return { prefixes: airline.prefixes, ...circlesFor(airline) };
+}
+
+function circlesFor(airline) {
+  return {
+    circles: [...CIRCLES, ...airline.extraCircles],
+    hub: CIRCLES[airline.hubCircle],
+  };
+}
+
 async function queryCircle(base, lat, lon) {
   const res = await fetch(`${base}/lat/${lat}/lon/${lon}/dist/${RADIUS_NM}`, {
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
@@ -206,7 +251,7 @@ async function queryCircle(base, lat, lon) {
  * Query each circle against one source, spaced out, collecting aircraft into
  * `byHex`. Returns the circles this sweep could not fetch.
  */
-async function sweep(source, circles, prefix, byHex) {
+async function sweep(source, circles, prefixes, byHex) {
   const missed = [];
 
   for (let i = 0; i < circles.length; i++) {
@@ -217,7 +262,7 @@ async function sweep(source, circles, prefix, byHex) {
       for (const ac of await queryCircle(source.base, lat, lon)) {
         const flight = normalise(ac);
         if (!flight) continue;
-        if (!flight.callsign.toUpperCase().startsWith(prefix)) continue;
+        if (!matches(flight, prefixes)) continue;
         remember(byHex, flight);
       }
     } catch (err) {
@@ -229,9 +274,7 @@ async function sweep(source, circles, prefix, byHex) {
 }
 
 export default async function handler(req, res) {
-  const raw = req.query?.prefix;
-  const candidate = String(Array.isArray(raw) ? raw[0] : raw ?? 'PGT').toUpperCase();
-  const prefix = /^[A-Z0-9]{1,8}$/.test(candidate) ? candidate : 'PGT';
+  const { prefixes, circles, hub } = scopeOf(req.query);
 
   const byHex = new Map();
 
@@ -245,11 +288,14 @@ export default async function handler(req, res) {
   // aircraft against 13. Asking only one of them throws away whatever the
   // other hears, and nowhere does that cost more than over the airport the
   // fleet departs from. One extra request buys the union.
+  //
+  // Written so the hub lands on each list exactly once wherever its index
+  // falls; for Pegasus (hub at 0) this is the same split as before airlines
+  // existed.
   const [primary, secondary] = SOURCES;
-  const hub = CIRCLES[HUB_CIRCLE];
   const [missedA, missedB] = await Promise.all([
-    sweep(primary, CIRCLES.filter((_, i) => i % 2 === 0), prefix, byHex),
-    sweep(secondary, [hub, ...CIRCLES.filter((_, i) => i % 2 === 1)], prefix, byHex),
+    sweep(primary, circles.filter((c, i) => i % 2 === 0 || c === hub), prefixes, byHex),
+    sweep(secondary, [hub, ...circles.filter((c, i) => i % 2 === 1 && c !== hub)], prefixes, byHex),
   ]);
 
   // Anything one provider refused, give the other a chance at.
@@ -275,7 +321,7 @@ export default async function handler(req, res) {
       for (const ac of await queryCircle(other.base, circle[0], circle[1])) {
         const flight = normalise(ac);
         if (!flight) continue;
-        if (!flight.callsign.toUpperCase().startsWith(prefix)) continue;
+        if (!matches(flight, prefixes)) continue;
         remember(byHex, flight);
       }
     } catch (err) {
@@ -287,7 +333,7 @@ export default async function handler(req, res) {
 
   // One more query than there are circles now goes out, so the "everything
   // failed" test counts queries, not circles.
-  if (stillMissing.length >= CIRCLES.length + 1) {
+  if (stillMissing.length >= circles.length + 1) {
     console.error('Every circle failed:', stillMissing.join(' | '));
     res.status(502).json({ error: 'Veri kaynaklarına ulaşılamadı' });
     return;

@@ -75,6 +75,53 @@ body {
 }
 .track-link:hover { color: var(--text-primary); }
 
+/* Which fleet the globe shows. It changes the map, the list and the counts at
+   once, so it sits in the top bar with the other page-wide controls rather
+   than inside the list. Pushed to the left edge, away from the status pill it
+   would otherwise read as part of. */
+.airline-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-right: auto;
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+.airline-switch button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.airline-switch button:hover { color: var(--text-primary); }
+
+/* A phone has no room for three pills on one line: they squeezed each other
+   until the status wrapped into a three-line blob. The switch drops to its
+   own row instead, under the other two, and nothing shrinks. */
+@media (max-width: 680px) {
+  .topbar { flex-wrap: wrap; row-gap: 8px; }
+  .topbar > * { flex-shrink: 0; white-space: nowrap; }
+  .airline-switch { order: 1; }
+}
+.airline-switch button[aria-pressed='true'] {
+  /* Not white on the accent: at this size that is under 3:1. */
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .brand {
   display: flex;
   align-items: center;

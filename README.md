@@ -1,7 +1,8 @@
 # PGS Radar
 
 Pegasus Havayolları filosunun canlı ADS-B verisiyle konum takibini 3D bir küre
-üzerinde gösteren, bağımsız bir web uygulaması. İki sayfası var: küre (`/`) ve
+üzerinde gösteren, bağımsız bir web uygulaması. Küre, üst çubuktaki bir
+anahtarla **Smartwings** filosunu da gösterebilir (varsayılan Pegasus). İki sayfası var: küre (`/`) ve
 tek bir uçuşu iniş anına kadar izleyen **uçuş takibi** (`/takip`).
 Vite + CesiumJS ile yazıldı, Apple'ın ürün sayfalarındaki sade/cam-efektli
 estetikten ilham alıyor.
@@ -21,18 +22,21 @@ değişiklik ilgili dosyayı aynı commit içinde günceller.
 
 | Adres | Ne yapar | Ağırlık |
 | --- | --- | --- |
-| `/` | Tüm filo, 3B küre üzerinde | Cesium dahil |
+| `/` | Tüm filo, 3B küre üzerinde — Pegasus ya da Smartwings | Cesium dahil |
 | `/takip` | Sefer numarasıyla **tek uçuş**, iniş bildirimine kadar | ~24 KB (Cesium yok) |
 
-İkisi de aynı `/api/states` yanıtını tüketir, yani aynı edge cache'ini paylaşır:
-takip sayfasının ziyaretçisi üst kaynağa ek yük bindirmez. Ayrıntı için
+İkisi de aynı `/api/states?airline=pegasus` yanıtını tüketir, yani aynı edge
+cache'ini paylaşır: takip sayfasının ziyaretçisi üst kaynağa ek yük bindirmez.
+Takip sayfası yalnızca Pegasus içindir — biniş kartındaki `PC612`'yi çağrı
+işaretine çeviren kural (`src/callsign.js`) Pegasus'a özgü. Ayrıntı için
 [Uçuş takibi](#uçuş-takibi-takip) bölümüne bakın.
 
 ## Nasıl çalışıyor
 
 - **Veri**: `api/states.js` topluluk ADS-B verisini sunucu tarafında çekip
-  çağrı işareti `PGT` ile başlayan (Pegasus'un ICAO kodu) uçuşları süzer;
-  `src/flights.js` bunu tüketen ince bir istemcidir. Anahtar gerekmez.
+  seçilen havayolunun çağrı işaretlerini süzer (`lib/airlines.js`: Pegasus
+  `PGT`; Smartwings `TVS`, `TVQ`, `TVP`); `src/flights.js` bunu tüketen ince
+  bir istemcidir. Anahtar gerekmez.
 - **Görselleştirme**: `src/main.js`, ion hesabı gerektirmeyen bir CesiumJS
   `Viewer` kurar (`baseLayer: false` + düz ellipsoid terrain + Esri Light Gray
   Canvas harita karoları), ve her uçuş için heading'e göre döndürülen bir
@@ -49,7 +53,37 @@ Kaynak [adsb.lol](https://adsb.lol), yedeği [adsb.fi](https://adsb.fi) — ikis
 topluluk ADS-B toplayıcısı, anahtar gerektirmiyor ve Vercel'in `fra1` bölgesinden
 50-80 ms'de yanıt veriyor. API tek sorguda bir nokta etrafında en fazla 250 deniz
 mili veriyor, bu yüzden Pegasus ağı örtüşen 13 daireyle taranıp sonuçlar `hex`
-üzerinden tekilleştiriliyor. Çağrı işareti filtresi ve SI birimine çevirme de
+üzerinden tekilleştiriliyor (Smartwings'te 18 daire — aşağıda).
+
+#### Havayolları ve uç nokta parametresi
+
+| İstek | Önekler | Daireler | Üs dairesi |
+| --- | --- | --- | --- |
+| `/api/states?airline=pegasus` (varsayılan) | `PGT` | 13 ortak | `[39.5, 32.0]` |
+| `/api/states?airline=smartwings` | `TVS`, `TVQ`, `TVP` | 13 ortak + 5 ek | `[47.0, 14.0]` (Prag 186 nm) |
+| `/api/states?prefix=XXX` (eski biçim) | `XXX` | 13 ortak | Pegasus'unki |
+
+Tablo `lib/airlines.js`'te; anahtar da uç nokta da onu okur. İstemci
+havayolunu **anahtarla** ister, önek listesiyle değil: edge cache anahtarı
+sorgu dizesidir ve tarayıcının gönderebileceği her farklı dize üst kaynağın
+ayrı bir taramasıdır. Sabit tablo bunu havayolu başına bir girdiyle sınırlar.
+Bilinmeyen bir anahtar varsayılana düşer.
+
+Smartwings önekleri **canlı veriden ölçüldü** (6 Ekim 2026, yayındaki
+`/api/states?prefix=…` üzerinden): `TVS` (Çek), `TVQ` (Slovak), `TVP` (Polonya
+sertifikası) — üçü de OK- tescilli uçaklarla geldi. Yalnızca `TV` öneki
+**kullanılamaz**: aynı sorgu 35 `TVF` uçuşu döndürdü, hepsi F- tescilli —
+Transavia France. Macaristan sertifikası (varsa) o an beslemede görülmedi ve
+eklenmedi.
+
+Smartwings'in 5 ek dairesi, ortak 13 dairenin ağını hesapla ölçünce eklendi:
+ortak daireler Kanarya Adaları, Madeira, Kızıldeniz (Hurghada, Şarm,
+Marsa Alam), Girit/Rodos/İstanköy, Endülüs/Algarve ve Polonya üslerini
+(Varşova, Katowice) dışarıda bırakıyordu — bir Prag charter şirketinin
+uçtuğu yerlerin çoğu. Ekler (`[52.0, 19.5]`, `[29.5, -15.5]`, `[26.5, 34.0]`,
+`[35.9, 26.0]`, `[37.3, -6.0]`) yalnızca Smartwings istendiğinde taranır;
+Pegasus taraması ve sağlayıcılar arası bölüşümü değişmedi (aynı 14 istek,
+aynı sırayla — sahte `fetch` ile doğrulandı). Smartwings taraması 19 istek. Çağrı işareti filtresi ve SI birimine çevirme de
 sunucuda yapılır; istemciye yalnızca ilgili uçuşlar iner.
 
 Daireler arka arkaya sorgulanır. Hepsini aynı anda göndermek üst kaynağın bir
@@ -60,8 +94,8 @@ loglanır.
 #### Üs dairesi ikisine birden sorulur
 
 Daireler normalde sağlayıcılar arasında paylaştırılır (tek numaralılar birine,
-çiftler diğerine) — amaç hız limitini bölmek. **Üs dairesi** (`HUB_CIRCLE`,
-Türkiye'yi örten `[39.5, 32.0]`) bunun istisnası: ikisine birden sorulur ve
+çiftler diğerine) — amaç hız limitini bölmek. **Üs dairesi** (havayolu
+başına `hubCircle`; Pegasus için Türkiye'yi örten `[39.5, 32.0]`) bunun istisnası: ikisine birden sorulur ve
 sonuç `hex` üzerinden birleştirilir.
 
 Gerekçe ölçüldü (4 Ekim 2026, tek an, aynı daire): adsb.lol **8** PGT uçuşu,
@@ -235,7 +269,9 @@ Bu yüzden cevap yerel bir tablodan çıkarılıyor (`lib/airports.js`): uçağ�
 konumuna en yakın havalimanı, 8 km'den yakınsa. Tablo
 [OurAirports](https://ourairports.com/data/) verisinden türetildi (kamu malı),
 filonun uçtuğu bölgedeki ICAO kodlu büyük ve orta ölçekli havalimanlarıyla
-sınırlı: 1372 satır, ~98 KB.
+sınırlı: 1379 satır, ~98 KB. Yedisi (Kanarya'nın batısı ve Madeira:
+LPA, TFS, TFN, SPC, VDE, FNC, PXO) Smartwings daireleriyle aynı kuralla
+eklendi; özgün tablo 13,9°B'de bitiyordu.
 
 Sefer numarasından bulunamazdı: yerdeki bir uçak ya kalkış ya varış
 havalimanındadır ve hangisi olduğu dönüş süresince değişir. Tablo `api/`
@@ -351,7 +387,8 @@ kalan ve hâlâ isabetli bir tercih: veri kaynakları Avrupa'da, gecikme düşü
 Tüm ziyaretçiler tek bir çıkış IP'sini paylaşır. Bunu ayakta tutan şey edge
 cache'idir: üst kaynağa giden istek sayısı ziyaretçi sayısıyla değil, **izlenen
 farklı `CACHE_SECONDS` penceresi sayısıyla** orantılıdır (pencere başına 14
-istek: 13 daire + üssün ikinci sorgusu). 60 saniyelik cache ile
+istek: 13 daire + üssün ikinci sorgusu). Smartwings ayrı bir cache girdisidir:
+biri onu izliyorsa o pencerede ayrıca 19 istek gider, kimse izlemiyorsa hiç. 60 saniyelik cache ile
 10 kişi de 1 kişi de izlese dakikada tek bir tarama yapılır; kimse izlemiyorken
 hiç istek gitmez. Trafik artarsa `api/states.js` içindeki `CACHE_SECONDS`
 değerini büyütün.
@@ -479,8 +516,12 @@ Hepsi opsiyoneldir; hiçbiri ayarlanmadan uygulama çalışır. Örnekler için
 
 | Değişken | Varsayılan | Açıklama |
 | --- | --- | --- |
-| `VITE_CALLSIGN_PREFIX` | `PGT` | Takip edilecek çağrı işareti öneki |
 | `VITE_POLL_INTERVAL_MS` | `30000` | Arayüzün yenileme aralığı (ms) |
+
+`VITE_CALLSIGN_PREFIX` kaldırıldı (6 Ekim 2026). Tek bir önek varsayıyordu;
+havayolu seçimi gelince hangi öneklerin izleneceği `lib/airlines.js`
+tablosuna taşındı, çünkü uç noktanın da aynı listeyi bilmesi gerekiyor.
+Vercel'de tanımlıysa artık okunmuyor, silinebilir.
 
 ## Vercel'e deploy
 
@@ -508,7 +549,8 @@ dalına push atmak otomatik deploy tetikler. Sıfırdan kurmak isterseniz:
 - **Heading döndürme**: Uçak ikonu ekran-uzayında (`alignedAxis: UNIT_Z`)
   döndürülüyor; bu çoğu görünümde doğru sonucu verir ama kamera aşırı
   eğildiğinde küçük sapmalar olabilir.
-- **Kapsama**: Daireler Pegasus'un tarifeli ağını kapsar; bunun dışına çıkan
+- **Kapsama**: Daireler Pegasus'un tarifeli ağını (Smartwings'te artı 5
+  ek daire) kapsar; bunun dışına çıkan
   bir uçuş listede görünmez. Kapsamı genişletmek için `api/states.js`
   içindeki `CIRCLES` listesine merkez ekleyin. Eklemeden önce **hesaplayın**:
   bir havalimanının en yakın merkeze uzaklığı `RADIUS_NM`'in altında kalmalı.

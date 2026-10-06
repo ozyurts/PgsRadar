@@ -12,13 +12,14 @@ yolunun teknik ayrıntıları `README.md`'dedir.
 
 ## Ürün tek cümlede
 
-Pegasus filosunun (çağrı işareti `PGT`) canlı ADS-B konumlarını 3B bir küre
-üzerinde gösteren, anahtarsız ve ücretsiz kaynaklarla çalışan bağımsız bir web
+Pegasus filosunun (çağrı işareti `PGT`) — ve anahtarla Smartwings'in (`TVS`,
+`TVQ`, `TVP`) — canlı ADS-B konumlarını 3B bir küre üzerinde gösteren, anahtarsız ve ücretsiz kaynaklarla çalışan bağımsız bir web
 uygulaması. Yayın: <https://pgsradar.vercel.app>
 
 İki sayfa: küre (`/`, `src/main.js`) ve tek uçuş takibi
 (`/takip`, `src/track.js` — sefer numarası girilir, iniş bildirimiyle biter).
-İkisi de aynı `/api/states` yanıtını tüketir.
+İkisi de aynı `/api/states?airline=pegasus` yanıtını tüketir; küre
+anahtarla `?airline=smartwings`e de geçer, takip sayfası yalnızca Pegasus.
 
 ## Yığın
 
@@ -26,7 +27,7 @@ uygulaması. Yayın: <https://pgsradar.vercel.app>
 | --- | --- |
 | İstemci | Vite 5 (çok sayfalı) + CesiumJS (`vite-plugin-cesium`), çerçevesiz, düz JS |
 | Sunucu | Vercel serverless fonksiyonları, `api/*.js`, ESM (`"type": "module"`) |
-| Paylaşılan | `lib/` — `api/` dışında, çünkü `api/` altındaki her dosya bir uç nokta olur |
+| Paylaşılan | `lib/` — `api/` dışında, çünkü `api/` altındaki her dosya bir uç nokta olur. `lib/airlines.js` hem uç noktaya hem istemciye girer |
 | İki sayfa ortak | `src/tokens.css` (palet), `src/ports.js` (havalimanı etiketleri), `src/callsign.js`, `src/flights.js` |
 | Bölge | `fra1` (veri kaynaklarına yakın) |
 
@@ -68,6 +69,10 @@ Harita karoları Esri'nin anahtarsız servislerinden gelir.
    ayrı bir 12 daire taraması demektir. Tek uçuş isteyen istemci tüm filoyu
    alıp kendi süzer (`src/track.js`). Bunu bozmak, tek bir bağlantıyı yüz
    kişinin paylaştığı anda üst kaynağı yüz kat daha fazla yorar.
+   Havayolu düzeyinde bir anahtar (`?airline=`) buna aykırı değil: sabit bir
+   tablodan gelir, havayolu başına tek girdi. Önek **listesi** ise sorgu
+   dizesine konmaz — o, istemcinin keyfi sayıda cache girdisi açabilmesi
+   demektir.
 
 ---
 
@@ -198,6 +203,22 @@ bildirimi) → yerde (iniş bildirimi) → yenileme (yeni bildirim yok, kart
   bölgede yalnızca seyir irtifası görünür. Bir bölge için şikayet gelirse
   önce o bölgenin alçak/yerdeki uçak sayısına bakılır, daire geometrisine
   değil.
+- **Bir önek bir havayolu değildir.** `TV` ile süzmek Smartwings'i değil,
+  Smartwings'le birlikte 35 Transavia France (`TVF`, F- tescilli) uçuşunu
+  getirdi (6 Ekim 2026). Yeni havayolu eklerken önce yayındaki
+  `/api/states?prefix=<kısa önek>` ile canlı veri okunur, tescil ülkesine
+  bakılır, önekler `lib/airlines.js`'e **tek tek** yazılır.
+- **İki sayfanın sorgu dizesi aynı kalmalı.** Küre ile takip sayfası aynı
+  edge cache girdisini paylaştığı için takip ziyaretçisi bedavadır. Birini
+  `?prefix=PGT`, diğerini `?airline=pegasus` ile bırakmak sessizce iki ayrı
+  tarama demektir — hiçbir şey kırılmaz, yalnızca üst kaynağa giden yük
+  ikiye katlanır. Sahte sunucunun istek günlüğünde iki sayfanın aynı dizeyi
+  gönderdiğine bakılır.
+- **Havayolu ekleyince havalimanı tablosu da genişler mi diye bak.**
+  `lib/airports.js` özgün dairelerin bölgesiyle sınırlı; Smartwings'in
+  Kanarya dairesi 7 eksik havalimanı çıkardı. Kural aynı: OurAirports
+  `airports.csv` (raw.githubusercontent'tan okunabiliyor), large/medium,
+  `icao_code` dolu, yeni dairelerden birinin `RADIUS_NM`'i içinde.
 - **Açı farkı formülünü test etmeden bırakma.** `Math.abs(((a-b+540)%360)-180)`
   zaten en küçük açıdır; başına `180 - …` eklemek işareti ters çevirir ve
   "uçak rotasında" ile "tam ters yönde" yer değiştirir. Bir kez oldu; üç
