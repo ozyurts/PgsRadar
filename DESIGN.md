@@ -54,7 +54,7 @@ Apple'ın ürün sayfalarındaki sade, cam yüzeyli estetik.
 
 | | |
 | --- | --- |
-| Vurgu | `#ff6a13` (Pegasus turuncusu) — havadaki uçak, seçim, sayaç |
+| Vurgu | `#ff6a13` (Pegasus turuncusu) — havadaki uçak, seçim, sayaç. Smartwings seçiliyken `#22418b` (koyu temada yazı için `#6789da`); bkz. "Havayolu rengi" |
 | Yerdeki uçak | `#6b7684` gri + beyaz kontur |
 | Havalimanı işareti | Beyaz nokta, `#3b4a5a` kontur ve etiket |
 | Yüzeyler | `backdrop-filter: blur(24px) saturate(180%)`, 22px köşe |
@@ -147,14 +147,66 @@ konmadı: bitişik dursa rozetin bir parçası gibi okunuyordu.
   atılır (sahte sunucuda 2,5 sn geciktirilmiş Pegasus yanıtıyla doğrulandı).
 - **Liste kipi korunur.** Yerdekilere bakarken havayolu değiştirmek,
   öbür havayolunun yerdekilerini gösterir; iki soru birbirinden bağımsız.
-- **Vurgu rengi değişmez.** Turuncu bu sitenin rengi, Pegasus'un markası
-  olarak değil "izlenen uçak" anlamında kullanılıyor; Smartwings için ayrı
-  bir palet iki görünümü ayrı uygulamalar gibi gösterirdi. Seçili düğme,
-  turuncunun soluk tonu üstünde koyu yazıdır — dolgulu turuncu üstünde beyaz
-  yazı bu boyutta 3:1'in altında kalıyor.
+- **Vurgu rengi havayolunu izler** — aşağıdaki "Havayolu rengi". (İlk
+  sürümde değişmiyordu; nedeni ve neden geri alındığı orada.)
 - **Takip sayfası yalnızca Pegasus.** Biniş kartındaki numarayı çağrı
   işaretine çeviren eşleme Pegasus'a özgü (`PC612 → PGT612`); Smartwings
   için aynısı ölçülmeden yazılmaz.
+
+### Havayolu rengi
+
+Smartwings seçiliyken küre Smartwings mavisine bürünür: havadaki uçak
+simgesi, irtifa çizgisi, iz, gölge noktası, seçim halkası ve rota çizgisi,
+listedeki nokta ve seçili satır, sayaç, kartın çağrı işareti, zemin
+seçicinin basılı düğmesi. Yerdeki uçak gri kalır — o katman havayolundan
+bağımsız olarak "arka plan" anlamı taşıyor.
+
+**Eski karar ve neden değişti.** İlk sürümde vurgu sabitti: turuncu bu
+sitenin rengi sayılmıştı, Pegasus markası olarak değil "izlenen uçak"
+anlamında; ayrı bir palet iki görünümü iki ayrı uygulama gibi gösterir diye
+düşünülmüştü. Kullanıcı Smartwings'in kendine has mavisinin kullanılmasını
+istedi. Kazanılan şey: ekrana bakan, hangi filoya baktığını anahtarı
+okumadan bilir — turuncu uçaklar Pegasus, lacivertler Smartwings. "Ayrı
+uygulama" kaygısı yerleşim, yazı ve davranış aynı kaldığı için karşılanmış
+oluyor; değişen yalnızca renk.
+
+**Renk nereden geldi.** Hafızadan değil, ölçüldü (6 Ekim 2026):
+
+| Kaynak | Bulunan |
+| --- | --- |
+| Kullanıcının gönderdiği görsel (kuyruk, gövde şeridi) | `#142850` civarı, ton 220° — gün batımı ışığında koyulaşmış |
+| smartwings.com'un kendi CSS'i (geçici `/api/swprobe`) | İki mavi: `#004289` (8 kez), `#22418b` (5 kez). En çok kullanılan vurgu aslında turuncu `#fe7d19` (23 kez) |
+
+`#22418b` seçildi: tonu (222°) görseldeki kuyrukla örtüşüyor, `#004289`
+(211°) daha yeşile kaçıyor. Sitede turuncunun daha sık geçtiği not edildi,
+ama istenen mavi, ve turuncu zaten Pegasus'un — iki filo aynı renge düşerdi.
+
+**Kontrast, tema başına.**
+
+| | Açık zemin `#f5f5f7` | Koyu zemin `#1c1c1e` |
+| --- | --- | --- |
+| `#22418b` | 8,8:1 | **1,8:1** — okunmaz |
+| `#6789da` (aynı ton, açıltılmış) | — | 5,0:1 |
+
+Bu yüzden koyu temada *yazı ve çizgi* vurgusu `#6789da` olur. Dolgu
+(basılı düğme) iki temada da marka renginin kendisidir, üstünde beyaz yazı
+9,6:1.
+
+**Anahtar düğmesi.** Smartwings basılıyken düğme dolgulu lacivert, beyaz
+yazı — sitenin ve kuyruğun rengi. Pegasus basılıyken soluk turuncu üstünde
+koyu yazı kalıyor: turuncu üstünde beyaz yazı 2,9:1. Asimetri bilinçli; her
+düğme kendi renginin izin verdiği en güçlü hali giyiyor.
+
+**Küre üstündeki simge.** Lacivert bir simge uydu görüntüsünde bir uçak
+değil bir delik gibi okunur; yerdeki gri simgeye neden beyaz kontur
+verildiyse aynı sebeple havadaki Smartwings simgesi de beyaz konturlu.
+Turuncu simgede kontur yok, ona ihtiyacı yok. (Sandbox'ta karolar
+yüklenmediği için kontur gerçek uydu görüntüsü üstünde değil, koyu düz bir
+zemin üstünde doğrulandı.)
+
+Renkler yalnızca `lib/airlines.js`'te yazılı; sayfaya `--airline-*` özel
+özellikleriyle, küreye doğrudan gider. Hangi temanın hangisini kullandığına
+`style.css` karar verir.
 
 Telefonda üç hap tek satıra sığmıyor (ölçüldü: 390 px'te durum rozeti üç
 satıra kırıldı). Anahtar orada ikinci satıra iner, hiçbir şey daralmaz.

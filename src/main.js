@@ -226,7 +226,18 @@ function buildPlaneIcon({ fill, outline } = { fill: '#ff6a13' }) {
   }
   return canvas.toDataURL('image/png');
 }
-const PLANE_ICON = buildPlaneIcon({ fill: '#ff6a13' });
+// The airborne icon wears the airline's colour (lib/airlines.js), so it is
+// built per airline rather than once. A dark one — Smartwings's navy — gets a
+// pale outline for the same reason the grey ground icon does: over satellite
+// imagery a navy shape is a hole in the picture, not an aircraft.
+const planeIcons = new Map();
+function planeIcon(key) {
+  if (!planeIcons.has(key)) {
+    const { accent, iconOutline } = AIRLINES[key].colors;
+    planeIcons.set(key, buildPlaneIcon({ fill: accent, outline: iconOutline }));
+  }
+  return planeIcons.get(key);
+}
 // Ground traffic is a backdrop, not the subject, so it gives up the accent
 // colour. The pale outline is what keeps a grey shape legible over dark
 // satellite imagery as well as over the light canvas basemap.
@@ -275,6 +286,23 @@ function airlineFromUrl() {
 }
 
 let airline = airlineFromUrl();
+
+/**
+ * Hand the airline's colours to the stylesheet. Set as custom properties on
+ * <body> rather than written into style.css, so the hex values live in one
+ * place (lib/airlines.js) for the page and the globe alike; style.css decides
+ * which one each theme uses.
+ */
+function applyAirlineColors() {
+  const { accent, accentDark, fill, ink } = AIRLINES[airline].colors;
+  const style = document.body.style;
+  style.setProperty('--airline-accent', accent);
+  style.setProperty('--airline-accent-dark', accentDark);
+  style.setProperty('--airline-fill', fill);
+  style.setProperty('--airline-ink', ink);
+  document.body.dataset.airline = airline;
+}
+applyAirlineColors();
 
 function visibleFlights() {
   const wantGround = listMode === 'ground';
@@ -458,6 +486,7 @@ function buildAirlineSwitch() {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = config.label;
+    button.dataset.airline = key;
     button.addEventListener('click', () => setAirline(key));
     host.append(button);
     return [key, button];
@@ -488,9 +517,13 @@ function setAirline(key) {
   history.replaceState(null, '', url);
 
   syncAirlineSwitch();
+  applyAirlineColors();
   clearSelection();
   flights = [];
   updateEntities();
+  // After the old fleet is gone, so no aircraft is left wearing the old
+  // colour beside new ones.
+  recolorSelectionLayer();
   renderList();
   if (els.coverageNotice) els.coverageNotice.hidden = true;
   setStatus('', 'Bağlanıyor…');
@@ -561,7 +594,11 @@ function fmtTime(d = new Date()) {
   return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-const ACCENT = Cesium.Color.fromCssColorString('#ff6a13');
+// Everything the map draws for an airborne aircraft — leg, trail, shadow,
+// selection — follows the airline. Per-aircraft entities are rebuilt on a
+// switch anyway (the fleet empties), so they read this when created; the
+// selection layer lives for the whole page and is recoloured in place.
+let ACCENT = Cesium.Color.fromCssColorString(AIRLINES[airline].colors.accent);
 
 // One size for both layers. Ground traffic used to be drawn smaller, back
 // when it shared the map with the flights and had to stay out of their way;
@@ -580,7 +617,7 @@ function createAirEntities(icao24) {
     id: icao24,
     position: new Cesium.CallbackProperty(() => airPosition(icao24), false),
     billboard: {
-      image: PLANE_ICON,
+      image: planeIcon(airline),
       width: ICON_SIZE,
       height: ICON_SIZE,
       rotation: 0,
@@ -705,6 +742,16 @@ const selectedHalo = viewer.entities.add({
     ),
   },
 });
+
+function recolorSelectionLayer() {
+  ACCENT = Cesium.Color.fromCssColorString(AIRLINES[airline].colors.accent);
+  selectedTrail.polyline.material = ACCENT.withAlpha(0.9);
+  selectedCourse.polyline.material = new Cesium.PolylineDashMaterialProperty({
+    color: ACCENT.withAlpha(0.65),
+    dashLength: 12,
+  });
+  selectedHalo.point.outlineColor = ACCENT.withAlpha(0.8);
+}
 
 function updateEntities() {
   const seen = new Set();

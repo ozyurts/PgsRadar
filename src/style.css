@@ -41,6 +41,28 @@ body {
 }
 .cesium-widget-credits { pointer-events: auto; }
 
+/* The globe takes the colours of the airline it is showing. main.js sets the
+   --airline-* properties from lib/airlines.js; this decides which one each
+   theme uses. The fallbacks are Pegasus's, so the page is right before the
+   script has run. Text on the dark theme takes the lightened variant: the
+   Smartwings navy reads at 1.8:1 there. A pressed control's fill is the
+   brand colour itself in both themes — it carries its own ink. */
+body {
+  --accent: var(--airline-accent, #ff6a13);
+  --accent-fill: var(--airline-fill, #ff6a13);
+  --accent-ink: var(--airline-ink, #ffffff);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body {
+    --accent: var(--airline-accent-dark, #ff6a13);
+  }
+}
+:root[data-theme="dark"] body {
+  --accent: var(--airline-accent-dark, #ff6a13);
+}
+
 .topbar {
   position: absolute;
   top: calc(18px + env(safe-area-inset-top, 0px));
@@ -116,10 +138,17 @@ body {
   .airline-switch { order: 1; }
 }
 .airline-switch button[aria-pressed='true'] {
-  /* Not white on the accent: at this size that is under 3:1. */
+  /* Not white on the Pegasus orange: at this size that is 2.9:1. */
   background: var(--accent-soft);
   color: var(--text-primary);
   font-weight: 600;
+}
+/* White on the Smartwings navy is 9.6:1, so that one can be the solid brand
+   colour the airline itself uses — the switch is where the airline's colour
+   is first seen. */
+.airline-switch button[data-airline='smartwings'][aria-pressed='true'] {
+  background: var(--accent-fill);
+  color: var(--accent-ink);
 }
 
 .brand {
@@ -273,7 +302,7 @@ body {
 .flight-row:hover { background: rgba(0, 0, 0, 0.03); }
 .flight-row.active {
   background: var(--accent-soft);
-  border-color: rgba(255, 106, 19, 0.3);
+  border-color: var(--accent-line);
 }
 .flight-row .dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -447,8 +476,8 @@ body {
 }
 .basemap-switch button:hover { color: var(--text-primary); }
 .basemap-switch button[aria-pressed='true'] {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-fill);
+  color: var(--accent-ink);
 }
 
 /* Two lists, one at a time. A segmented control rather than a checkbox: the

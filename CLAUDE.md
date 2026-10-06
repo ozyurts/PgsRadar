@@ -98,7 +98,7 @@ Bir şeyi kanıtlamak için geçici uç nokta açmak bu depoda kabul görmüş y
 
 Üçüncü adım atlanmaz. Bugüne kadar açılıp kapatılanlar: `/api/diag`,
 `/api/tile`, `/api/routeprobe`, `/api/csprobe`, `/api/asprobe`, `/api/aprobe`,
-`/api/pcprobe`.
+`/api/pcprobe`, `/api/swprobe` (smartwings.com'un CSS'indeki renk sayımı).
 
 Probe bir **açık vekil olmamalı**: `/api/pcprobe` host'u sabit bir izin
 listesiyle sınırlıyordu ve yalnızca gövdeyi dilimleyip arayabiliyordu.
@@ -219,6 +219,11 @@ bildirimi) → yerde (iniş bildirimi) → yenileme (yeni bildirim yok, kart
   Kanarya dairesi 7 eksik havalimanı çıkardı. Kural aynı: OurAirports
   `airports.csv` (raw.githubusercontent'tan okunabiliyor), large/medium,
   `icao_code` dolu, yeni dairelerden birinin `RADIUS_NM`'i içinde.
+- **Marka rengi koyu temada okunmayabilir.** Smartwings laciverti
+  (`#22418b`) açık zeminde 8,8:1, koyu panelde 1,8:1. Yeni bir havayolu
+  rengi eklenirken iki temaya karşı kontrast hesaplanır (WCAG göreli
+  parlaklık, birkaç satırlık node); gerekirse `accentDark` aynı tonun
+  açılmışı olur. Renkler `lib/airlines.js`'te, CSS'e elle yazılmaz.
 - **Açı farkı formülünü test etmeden bırakma.** `Math.abs(((a-b+540)%360)-180)`
   zaten en küçük açıdır; başına `180 - …` eklemek işareti ters çevirir ve
   "uçak rotasında" ile "tam ters yönde" yer değiştirir. Bir kez oldu; üç

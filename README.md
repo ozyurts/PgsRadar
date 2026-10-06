@@ -63,7 +63,9 @@ mili veriyor, bu yüzden Pegasus ağı örtüşen 13 daireyle taranıp sonuçlar
 | `/api/states?airline=smartwings` | `TVS`, `TVQ`, `TVP` | 13 ortak + 5 ek | `[47.0, 14.0]` (Prag 186 nm) |
 | `/api/states?prefix=XXX` (eski biçim) | `XXX` | 13 ortak | Pegasus'unki |
 
-Tablo `lib/airlines.js`'te; anahtar da uç nokta da onu okur. İstemci
+Tablo `lib/airlines.js`'te; anahtar da uç nokta da onu okur. Havayolunun
+renkleri de orada (`colors`): küre Smartwings seçiliyken Smartwings
+mavisine geçer — gerekçe ve ölçüm DESIGN.md'de ("Havayolu rengi"). İstemci
 havayolunu **anahtarla** ister, önek listesiyle değil: edge cache anahtarı
 sorgu dizesidir ve tarayıcının gönderebileceği her farklı dize üst kaynağın
 ayrı bir taramasıdır. Sabit tablo bunu havayolu başına bir girdiyle sınırlar.
